@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soundscape Mixer & Audio Visualizer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="login-overlay" class="login-overlay">
+    <div class="login-modal">
+      <div class="login-icon">&#9835;</div>
+      <h1 class="login-title">Soundscape Mixer</h1>
+      <p class="login-subtitle">나만의 사운드스케이프를 만들어 보세요</p>
+      <form id="login-form" class="login-form">
+        <input
+          type="text"
+          id="username-input"
+          class="login-input"
+          placeholder="이름을 입력하세요"
+          autocomplete="off"
+          required
+        />
+        <button type="submit" class="login-btn">시작하기</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="app" class="app hidden">
+
+    <header class="header">
+      <div class="header-left">
+        <h1 class="logo">&#9835; Soundscape Mixer</h1>
+      </div>
+      <div class="header-right">
+        <span id="welcome-msg" class="welcome-msg"></span>
+        <button id="logout-btn" class="btn-ghost">로그아웃</button>
+      </div>
+    </header>
+
+    <main class="main">
+
+      <section class="sound-grid">
+        <div class="sound-card" data-channel="0">
+          <div class="card-icon rain-icon">&#127783;</div>
+          <h3 class="card-title">빗소리</h3>
+          <p class="card-desc">YouTube ASMR 스트리밍</p>
+          <div class="card-controls">
+            <button class="play-btn" data-channel="0">
+              <span class="play-icon">&#9654;</span>
+            </button>
+            <div class="slider-wrap">
+              <input type="range" class="volume-slider" data-channel="0" min="0" max="100" value="50" />
+              <span class="volume-value" data-channel="0">50</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sound-card" data-channel="1">
+          <div class="card-icon fire-icon">&#128293;</div>
+          <h3 class="card-title">모닥불</h3>
+          <p class="card-desc">YouTube ASMR 스트리밍</p>
+          <div class="card-controls">
+            <button class="play-btn" data-channel="1">
+              <span class="play-icon">&#9654;</span>
+            </button>
+            <div class="slider-wrap">
+              <input type="range" class="volume-slider" data-channel="1" min="0" max="100" value="50" />
+              <span class="volume-value" data-channel="1">50</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sound-card" data-channel="2">
+          <div class="card-icon wave-icon">&#127754;</div>
+          <h3 class="card-title">잔잔한 파도</h3>
+          <p class="card-desc">YouTube 자연음 스트리밍</p>
+          <div class="card-controls">
+            <button class="play-btn" data-channel="2">
+              <span class="play-icon">&#9654;</span>
+            </button>
+            <div class="slider-wrap">
+              <input type="range" class="volume-slider" data-channel="2" min="0" max="100" value="50" />
+              <span class="volume-value" data-channel="2">50</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sound-card" data-channel="3">
+          <div class="card-icon night-icon">&#127911;</div>
+          <h3 class="card-title">로파이 음악</h3>
+          <p class="card-desc">YouTube 로파이 스트리밍</p>
+          <div class="card-controls">
+            <button class="play-btn" data-channel="3">
+              <span class="play-icon">&#9654;</span>
+            </button>
+            <div class="slider-wrap">
+              <input type="range" class="volume-slider" data-channel="3" min="0" max="100" value="50" />
+              <span class="volume-value" data-channel="3">50</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="visualizer-section">
+        <h2 class="section-title">Audio Visualizer</h2>
+        <div id="visualizer" class="visualizer"></div>
+      </section>
+
+      <section class="timer-section">
+        <h2 class="section-title">타이머 &amp; 페이드아웃</h2>
+        <div class="timer-buttons">
+          <button class="timer-btn" data-minutes="1">1분</button>
+          <button class="timer-btn" data-minutes="5">5분</button>
+          <button class="timer-btn" data-minutes="10">10분</button>
+          <button class="timer-btn" data-minutes="30">30분</button>
+          <button class="timer-btn timer-stop" data-minutes="0">정지</button>
+        </div>
+        <div id="timer-display" class="timer-display hidden">
+          <span class="timer-label">남은 시간</span>
+          <span id="timer-countdown" class="timer-countdown">00:00</span>
+        </div>
+      </section>
+
+      <section class="preset-section">
+        <h2 class="section-title">프리셋 관리</h2>
+        <div class="preset-buttons">
+          <button id="save-preset-btn" class="preset-btn save-btn">프리셋 저장</button>
+          <button id="load-preset-btn" class="preset-btn load-btn">프리셋 불러오기</button>
+        </div>
+        <p id="preset-status" class="preset-status"></p>
+      </section>
+
+    </main>
+
+    <footer class="footer">
+      <p>Soundscape Mixer &amp; Audio Visualizer &mdash; Tokyo Night Edition</p>
+    </footer>
+  </div>
+
+  <!-- ============================================
+       숨겨진 YouTube 플레이어 컨테이너
+       - 백그라운드 사운드 레이어로 사용
+       - 사용자 눈에 보이지 않도록 1x1 픽셀 + opacity: 0 처리
+       ============================================ -->
+  <div id="yt-players" class="yt-players-hidden">
+    <div id="yt-player-0"></div>
+    <div id="yt-player-1"></div>
+    <div id="yt-player-2"></div>
+    <div id="yt-player-3"></div>
+  </div>
+
+  <!-- YouTube IFrame Player API 로드 (script.js보다 먼저 로드되어야 함) -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="script.js"></script>
+</body>
+</html>
