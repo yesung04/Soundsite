@@ -21,10 +21,10 @@
  * - name: 채널 표시 이름 (UI 및 디버깅용)
  */
 const CHANNEL_CONFIG = [
-  { name: '빗소리', videoId: 'J5dBZp2bNjg' },
+  { name: '빗소리', videoId: 'q76b4-NFkOE' },
   { name: '모닥불', videoId: 'L_LUpnjgPso' },
   { name: '잔잔한 파도', videoId: 'vPhg6sc1Mk4' },
-  { name: '로파이 음악', videoId: 'jfKfPfyJRdk' }
+  { name: '로파이 음악', videoId: '5qap5aO4i9A' }
 ];
 
 /** 비주얼라이저 막대(Bar)의 총 개수 - 시각적 해상도를 결정 */
@@ -185,26 +185,45 @@ function onYouTubeIframeAPIReady() {
  *   - fs: 0 (전체화면 버튼 숨김)
  *   - modestbranding: 1 (YouTube 로고 최소화)
  *   - rel: 0 (관련 영상 추천 비활성화)
- *   - origin: 현재 페이지의 origin (보안 정책용)
+ *   - origin: HTTPS 환경에서만 설정 (HTTP localhost에서는 postMessage 에러 방지)
  * - events:
  *   - onReady: 플레이어가 영상 로드 완료 시 호출
  *   - onStateChange: 재생/일시정지/종료 등 상태 변경 시 호출
  *   - onError: 에러 발생 시 호출
+ *
+ * [origin 파라미터와 postMessage 에러]
+ *
+ * YouTube IFrame API는 iframe 간 통신에 postMessage를 사용합니다.
+ * 이때 origin이 HTTPS가 아닌 경우 (예: http://localhost:8080),
+ * YouTube 서버가 해당 origin을 신뢰하지 않아 postMessage 에러가 발생합니다.
+ *
+ * 따라서 HTTPS 환경(배포 환경)에서만 origin을 명시하고,
+ * HTTP localhost 환경에서는 origin을 생략하여 에러를 방지합니다.
  */
 function createYouTubePlayer(channelIndex) {
   const config = CHANNEL_CONFIG[channelIndex];
 
+  /**
+   * playerVars 동적 구성
+   * HTTPS 환경에서만 origin을 추가하여 postMessage origin 불일치 에러를 방지합니다.
+   */
+  const playerVars = {
+    autoplay: 0,
+    controls: 0,
+    disablekb: 1,
+    fs: 0,
+    modestbranding: 1,
+    rel: 0
+  };
+
+  // HTTPS 환경에서만 origin 설정 (localhost HTTP에서는 생략)
+  if (window.location.protocol === 'https:') {
+    playerVars.origin = window.location.origin;
+  }
+
   state.players[channelIndex] = new YT.Player(`yt-player-${channelIndex}`, {
     videoId: config.videoId,
-    playerVars: {
-      autoplay: 0,
-      controls: 0,
-      disablekb: 1,
-      fs: 0,
-      modestbranding: 1,
-      rel: 0,
-      origin: window.location.origin
-    },
+    playerVars: playerVars,
     events: {
       onReady: (event) => onPlayerReady(event, channelIndex),
       onStateChange: (event) => onPlayerStateChange(event, channelIndex),
@@ -287,6 +306,9 @@ function onPlayerStateChange(event, channelIndex) {
  * 101: 임베드 재생이 허용되지 않음
  * 150: 임베드 재생이 허용되지 않음 (101과 동일)
  *
+ * 에러 발생 시 해당 사운드 카드에 시각적 에러 표시를 추가하여
+ * 사용자가 재생 불가 상태를 직관적으로 인지할 수 있도록 합니다.
+ *
  * @param {YT.OnErrorEvent} event - 에러 이벤트
  * @param {number} channelIndex - 채널 인덱스
  */
@@ -306,6 +328,18 @@ function onPlayerError(event, channelIndex) {
   state.isPlaying[channelIndex] = false;
   updatePlayButton(channelIndex, false);
   soundCards[channelIndex].classList.remove('active');
+
+  /**
+   * 카드에 에러 상태 시각적 표시
+   * - 카드에 'error' CSS 클래스 추가
+   * - 카드 설명 텍스트를 에러 메시지로 변경
+   */
+  soundCards[channelIndex].classList.add('error');
+  const descEl = soundCards[channelIndex].querySelector('.card-desc');
+  if (descEl) {
+    descEl.textContent = `⚠ ${errorMsg}`;
+    descEl.classList.add('error-text');
+  }
 }
 
 /**

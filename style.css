@@ -339,6 +339,22 @@ body::before {
   opacity: 1;
 }
 
+/* --- 에러 상태 카드 (임베드 불가 등) --- */
+.sound-card.error {
+  border-color: rgba(247, 118, 142, 0.4);
+  opacity: 0.6;
+}
+
+.sound-card.error::before {
+  background: linear-gradient(90deg, var(--neon-pink), rgba(247, 118, 142, 0.3));
+  opacity: 1;
+}
+
+.error-text {
+  color: var(--neon-pink) !important;
+  font-size: 0.75rem !important;
+}
+
 .card-icon {
   font-size: 2.5rem;
   margin-bottom: 0.8rem;
