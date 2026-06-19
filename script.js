@@ -178,6 +178,7 @@ function onYouTubeIframeAPIReady() {
  * [Player 생성 옵션 상세]
  *
  * - videoId: 재생할 유튜브 영상의 고유 ID
+ * - width/height: iframe 최소 크기 (200x200) - YouTube가 너무 작은 iframe에서의 재생을 거부하므로 필수
  * - playerVars:
  *   - autoplay: 0 (자동재생 비활성화 - 사용자가 직접 재생 버튼 클릭)
  *   - controls: 0 (재생 컨트롤바 숨김 - 백그라운드 재생이므로 불필요)
@@ -185,11 +186,19 @@ function onYouTubeIframeAPIReady() {
  *   - fs: 0 (전체화면 버튼 숨김)
  *   - modestbranding: 1 (YouTube 로고 최소화)
  *   - rel: 0 (관련 영상 추천 비활성화)
+ *   - enablejsapi: 1 (JavaScript API 명시적 활성화)
  *   - origin: HTTPS 환경에서만 설정 (HTTP localhost에서는 postMessage 에러 방지)
+ *   - host: HTTPS가 아닌 환경에서 YouTube가 허용할 호스트 지정
  * - events:
  *   - onReady: 플레이어가 영상 로드 완료 시 호출
  *   - onStateChange: 재생/일시정지/종료 등 상태 변경 시 호출
  *   - onError: 에러 발생 시 호출
+ *
+ * [에러 코드 153과 iframe 크기]
+ *
+ * YouTube는 눈에 보이지 않는 너무 작은 iframe(1x1 등)에서의 재생을 제한합니다.
+ * 에러 코드 153은 비공식적으로 "숨겨진 플레이어에서의 재생 제한"을 의미합니다.
+ * 따라서 iframe을 최소 200x200 크기로 유지하고, CSS position으로 화면 밖으로 배치합니다.
  *
  * [origin 파라미터와 postMessage 에러]
  *
@@ -198,7 +207,7 @@ function onYouTubeIframeAPIReady() {
  * YouTube 서버가 해당 origin을 신뢰하지 않아 postMessage 에러가 발생합니다.
  *
  * 따라서 HTTPS 환경(배포 환경)에서만 origin을 명시하고,
- * HTTP localhost 환경에서는 origin을 생략하여 에러를 방지합니다.
+ * HTTP localhost 환경에서는 host 파라미터를 사용하여 에러를 방지합니다.
  */
 function createYouTubePlayer(channelIndex) {
   const config = CHANNEL_CONFIG[channelIndex];
@@ -206,6 +215,7 @@ function createYouTubePlayer(channelIndex) {
   /**
    * playerVars 동적 구성
    * HTTPS 환경에서만 origin을 추가하여 postMessage origin 불일치 에러를 방지합니다.
+   * HTTP 환경에서는 host 파라미터를 사용하여 YouTube가 허용할 도메인을 지정합니다.
    */
   const playerVars = {
     autoplay: 0,
@@ -213,16 +223,22 @@ function createYouTubePlayer(channelIndex) {
     disablekb: 1,
     fs: 0,
     modestbranding: 1,
-    rel: 0
+    rel: 0,
+    enablejsapi: 1
   };
 
-  // HTTPS 환경에서만 origin 설정 (localhost HTTP에서는 생략)
   if (window.location.protocol === 'https:') {
+    // HTTPS 환경: origin 설정 (보안 강화)
     playerVars.origin = window.location.origin;
+  } else {
+    // HTTP 환경 (localhost 등): host 파라미터로 에러 153 방지
+    playerVars.host = 'https://www.youtube.com';
   }
 
   state.players[channelIndex] = new YT.Player(`yt-player-${channelIndex}`, {
     videoId: config.videoId,
+    width: '200',
+    height: '200',
     playerVars: playerVars,
     events: {
       onReady: (event) => onPlayerReady(event, channelIndex),
@@ -305,6 +321,9 @@ function onPlayerStateChange(event, channelIndex) {
  * 100: 영상을 찾을 수 없음 (not found)
  * 101: 임베드 재생이 허용되지 않음
  * 150: 임베드 재생이 허용되지 않음 (101과 동일)
+ * 153: 숨겨진/너무 작은 iframe에서의 재생 제한 (비공식)
+ *      - iframe이 1x1 픽셀이거나 opacity: 0으로 완전히 숨겨진 경우 발생
+ *      - 해결: iframe을 최소 200x200 크기로 유지하고 position으로 화면 밖 배치
  *
  * 에러 발생 시 해당 사운드 카드에 시각적 에러 표시를 추가하여
  * 사용자가 재생 불가 상태를 직관적으로 인지할 수 있도록 합니다.
@@ -318,7 +337,8 @@ function onPlayerError(event, channelIndex) {
     5: 'HTML5 플레이어 에러',
     100: '영상을 찾을 수 없음',
     101: '임베드 재생 불가',
-    150: '임베드 재생 불가'
+    150: '임베드 재생 불가',
+    153: '플레이어 재생 제한 (iframe 설정 확인 필요)'
   };
 
   const errorMsg = errorCodes[event.data] || `알 수 없는 에러 (코드: ${event.data})`;

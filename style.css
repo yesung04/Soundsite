@@ -666,15 +666,23 @@ body::before {
    ============================================ */
 
 /* --- 숨겨진 YouTube 플레이어 컨테이너 --- */
+/* 
+ * YouTube는 1x1 픽셀이나 opacity: 0으로 완전히 숨겨진 iframe에서의 재생을 거부할 수 있습니다.
+ * 따라서 최소 200x200 크기를 유지하면서 position으로 화면 밖으로 배치합니다.
+ */
 .yt-players-hidden {
   position: fixed;
   top: -9999px;
   left: -9999px;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
+  width: 200px;
+  height: 200px;
   pointer-events: none;
   overflow: hidden;
+}
+
+.yt-players-hidden > div {
+  width: 200px;
+  height: 200px;
 }
 
 @media (max-width: 768px) {
