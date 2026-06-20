@@ -290,25 +290,50 @@
       <div id="myinfo-newpassword" class="myinfo-section hidden">
         <h3 class="myinfo-step-title">2단계 · 새 비밀번호 설정</h3>
         <p class="myinfo-step-desc">새로운 비밀번호를 입력해 주세요. (6자 이상)</p>
-        <input
-          type="password"
-          id="myinfo-new-pw"
-          class="login-input"
-          placeholder="새 비밀번호 (6자 이상)"
-          autocomplete="new-password"
-        />
-        <input
-          type="password"
-          id="myinfo-new-pw-confirm"
-          class="login-input"
-          placeholder="새 비밀번호 확인"
-          autocomplete="new-password"
-        />
+        <div class="password-input-wrap">
+          <input
+            type="password"
+            id="myinfo-new-pw"
+            class="login-input password-input"
+            placeholder="새 비밀번호 (6자 이상)"
+            autocomplete="new-password"
+          />
+          <button
+            type="button"
+            class="password-toggle"
+            data-target="myinfo-new-pw"
+            aria-label="비밀번호 표시"
+            title="비밀번호 표시/숨기기"
+          >&#128065;</button>
+        </div>
+        <div class="password-input-wrap">
+          <input
+            type="password"
+            id="myinfo-new-pw-confirm"
+            class="login-input password-input"
+            placeholder="새 비밀번호 확인"
+            autocomplete="new-password"
+          />
+          <button
+            type="button"
+            class="password-toggle"
+            data-target="myinfo-new-pw-confirm"
+            aria-label="비밀번호 표시"
+            title="비밀번호 표시/숨기기"
+          >&#128065;</button>
+        </div>
         <p id="myinfo-pw-error" class="auth-error hidden"></p>
         <div class="myinfo-step-buttons">
           <button id="myinfo-save-pw-btn" class="login-btn">비밀번호 변경</button>
           <button id="myinfo-save-cancel-btn" class="auth-find-link">취소</button>
         </div>
+      </div>
+
+      <!-- 4단계: 변경 완료 -->
+      <div id="myinfo-success" class="myinfo-section hidden">
+        <div class="myinfo-success-icon">&#10003;</div>
+        <h3 class="myinfo-success-title">비밀번호를 변경완료 하였습니다</h3>
+        <button id="myinfo-success-ok-btn" class="login-btn myinfo-success-ok">확인</button>
       </div>
     </div>
   </div>

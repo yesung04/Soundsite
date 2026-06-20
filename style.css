@@ -522,6 +522,102 @@ body::before {
 }
 
 /* ============================================
+   [신규] 비밀번호 입력 + 눈 모양 토글
+   ============================================ */
+.password-input-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.password-input-wrap .password-input {
+  /* 눈 모양 버튼이 들어갈 공간 확보 */
+  padding-right: 44px;
+  width: 100%;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.15rem;
+  cursor: pointer;
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+  line-height: 1;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.password-toggle:hover {
+  color: var(--neon-cyan);
+  background: rgba(125, 207, 255, 0.08);
+}
+
+.password-toggle.active {
+  color: var(--neon-cyan);
+  background: rgba(125, 207, 255, 0.12);
+}
+
+.password-toggle:focus {
+  outline: 1px solid var(--neon-cyan);
+  outline-offset: 1px;
+}
+
+/* ============================================
+   [신규] 비밀번호 변경 완료 (success) 섹션
+   ============================================ */
+.myinfo-success-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(158, 206, 106, 0.15);
+  border: 2px solid var(--neon-green);
+  color: var(--neon-green);
+  font-size: 2.2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0.6rem auto 0.8rem auto;
+  box-shadow: 0 0 20px rgba(158, 206, 106, 0.3);
+  animation: successPop 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+
+@keyframes successPop {
+  0%   { transform: scale(0.3); opacity: 0; }
+  60%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+.myinfo-success-title {
+  color: var(--text-bright);
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-align: center;
+  margin: 0 0 1.2rem 0;
+  line-height: 1.5;
+}
+
+.myinfo-success-ok {
+  width: 100%;
+  background: linear-gradient(135deg, var(--neon-green), #7ab87a);
+  color: #1a1b26;
+  font-weight: 700;
+}
+
+.myinfo-success-ok:hover {
+  box-shadow: 0 0 20px rgba(158, 206, 106, 0.5);
+  transform: translateY(-1px);
+}
+
+/* ============================================
    앱 레이아웃 (App Layout)
    ============================================ */
 .app {

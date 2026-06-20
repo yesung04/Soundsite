@@ -391,10 +391,10 @@ function closeMyInfoModal() {
 }
 
 /**
- * [나의 정보] 섹션 전환 (view / verify / newpassword)
+ * [나의 정보] 섹션 전환 (view / verify / newpassword / success)
  */
 function showMyInfoSection(name) {
-  const sections = ['view', 'verify', 'newpassword'];
+  const sections = ['view', 'verify', 'newpassword', 'success'];
   sections.forEach(s => {
     const el = document.getElementById(`myinfo-${s}`);
     if (el) el.classList.toggle('hidden', s !== name);
@@ -484,11 +484,66 @@ async function submitMyInfoNewPassword() {
 
   const success = await updateUserPassword(state.currentUser, newPw);
   if (success) {
-    showLofiError('비밀번호가 성공적으로 변경되었습니다.');
+    // [변경] lofiError 대신 모달 내부 success 섹션 표시
     myInfoVerified = false;
-    showMyInfoSection('view');
+    showMyInfoError('pw', '');
+    showMyInfoSection('success');
   } else {
     showMyInfoError('pw', '비밀번호 변경에 실패했습니다.');
+  }
+}
+
+/**
+ * [나의 정보] 비밀번호 변경 성공 확인 버튼 핸들러
+ * - success 섹션 → view 섹션으로 복귀
+ * - 비밀번호 / 인증 입력 필드 초기화 (보안)
+ */
+function closeMyInfoSuccess() {
+  myInfoVerified = false;
+
+  // 입력 필드 초기화 (다음 변경 시 깨끗하게 시작)
+  const idsToReset = ['myinfo-new-pw', 'myinfo-new-pw-confirm', 'myinfo-verify-input'];
+  idsToReset.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.value = '';
+      // 비밀번호 토글이 켜져 있었다면 다시 가려두기
+      if (el.type === 'text') {
+        el.type = 'password';
+        const toggle = document.querySelector(`.password-toggle[data-target="${id}"]`);
+        if (toggle) {
+          toggle.classList.remove('active');
+          toggle.innerHTML = '&#128065;'; // 👁
+        }
+      }
+    }
+  });
+
+  showMyInfoError('verify', '');
+  showMyInfoError('pw', '');
+  showMyInfoSection('view');
+}
+
+/**
+ * [나의 정보] 비밀번호 눈 모양 표시/숨기기 토글
+ * @param {string} targetId - 토글할 input의 id
+ * @param {HTMLElement} btn - 클릭된 토글 버튼
+ */
+function togglePasswordVisibility(targetId, btn) {
+  const input = document.getElementById(targetId);
+  if (!input || !btn) return;
+  if (input.type === 'password') {
+    // 표시
+    input.type = 'text';
+    btn.classList.add('active');
+    btn.innerHTML = '&#128584;'; // 🙈 (가려진 눈)
+    btn.setAttribute('aria-label', '비밀번호 숨기기');
+  } else {
+    // 숨김
+    input.type = 'password';
+    btn.classList.remove('active');
+    btn.innerHTML = '&#128065;'; // 👁 (보이는 눈)
+    btn.setAttribute('aria-label', '비밀번호 표시');
   }
 }
 
@@ -2519,6 +2574,21 @@ function initCardUIVisibility() {
   if (myinfoSaveCancel) {
     myinfoSaveCancel.addEventListener('click', () => showMyInfoSection('view'));
   }
+
+  // [신규] 비밀번호 변경 성공 → 확인 버튼
+  const myinfoSuccessOkBtn = document.getElementById('myinfo-success-ok-btn');
+  if (myinfoSuccessOkBtn) {
+    myinfoSuccessOkBtn.addEventListener('click', closeMyInfoSuccess);
+  }
+
+  // [신규] 비밀번호 눈 모양 표시/숨기기 토글 — 모든 .password-toggle 요소에 바인딩
+  document.querySelectorAll('.password-toggle').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = btn.getAttribute('data-target');
+      togglePasswordVisibility(targetId, btn);
+    });
+  });
 
   // ESC 키로 열린 모달 닫기
   document.addEventListener('keydown', (e) => {
