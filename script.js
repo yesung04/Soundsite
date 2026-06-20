@@ -83,7 +83,7 @@ const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3/search';
  * - player: 4번째 채널의 YouTube Player 인스턴스
  * - isPlayerReady: YouTube Player 준비 완료 여부
  * - isPlaying: 현재 재생 중 여부
- * - volumes: 각 채널의 볼륨 배열 (0~100, 기본 70)
+ * - volumes: 각 채널의 볼륨 배열 (0~100, 기본 100)
  * - audioContext: Web Audio API의 AudioContext (resume용)
  * - vizAnimId: 비주얼라이저 애니메이션 ID
  * - currentUser: 현재 로그인된 사용자 아이디
@@ -96,7 +96,7 @@ const state = {
   player: null,             // YouTube Player 인스턴스
   isPlayerReady: false,     // Player 준비 완료 여부
   isPlaying: false,         // 재생 중 여부
-  volumes: [50, 50, 50, 70],
+  volumes: [50, 50, 50, 100],
   audioContext: null,       // Web Audio API AudioContext
   vizAnimId: null,
   currentUser: null,
