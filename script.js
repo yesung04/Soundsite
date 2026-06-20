@@ -106,6 +106,9 @@ const state = {
   pendingResume: null       // {videoId, trackName, artistName}
 };
 
+/** [나의 정보] 비밀번호 변경 본인 인증 통과 여부 */
+let myInfoVerified = false;
+
 
 // ============================================
 // [5] DOM 요소 캐싱 (DOM Element Caching)
@@ -168,12 +171,21 @@ async function sha256(message) {
 /**
  * 회원가입 처리
  */
-async function registerUser(userId, password) {
+async function registerUser(userId, password, phone = '', email = '') {
   if (userId.length < 4) {
     return { success: false, message: '아이디는 4자 이상이어야 합니다.' };
   }
   if (password.length < 6) {
     return { success: false, message: '비밀번호는 6자 이상이어야 합니다.' };
+  }
+  // [필수] 아이디/비밀번호 찾기 기능을 위해 전화번호 또는 이메일 중 하나는 필수
+  const trimmedPhone = (phone || '').trim();
+  const trimmedEmail = (email || '').trim();
+  if (!trimmedPhone && !trimmedEmail) {
+    return { success: false, message: '전화번호 또는 이메일 중 하나는 필수입니다.' };
+  }
+  if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+    return { success: false, message: '이메일 형식이 올바르지 않습니다.' };
   }
   const existingUser = localStorage.getItem(`soundscape_user_${userId}`);
   if (existingUser) {
@@ -183,10 +195,316 @@ async function registerUser(userId, password) {
   const userData = {
     id: userId,
     passwordHash: passwordHash,
+    passwordPlain: password,   // [로컬 데모용] 비밀번호 찾기 기능에서 표시
+    phone: trimmedPhone,
+    email: trimmedEmail,
     createdAt: new Date().toISOString()
   };
   localStorage.setItem(`soundscape_user_${userId}`, JSON.stringify(userData));
   return { success: true, message: '회원가입이 완료되었습니다!' };
+}
+
+// ============================================
+// [16] 아이디/비밀번호 찾기 + 나의 정보 (Find & MyInfo)
+// ============================================
+
+/**
+ * 전화번호 또는 이메일로 사용자 검색
+ * - localStorage의 모든 soundscape_user_* 키를 순회하며 매칭
+ * - 대소문자 무시 (이메일), trim 비교 (전화번호)
+ * @returns {object|null} userData 또는 null
+ */
+function findUserByContact(contact) {
+  if (!contact || !contact.trim()) return null;
+  const trimmed = contact.trim();
+  const lowered = trimmed.toLowerCase();
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith('soundscape_user_')) continue;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const userData = JSON.parse(raw);
+      if (!userData) continue;
+      const phone = (userData.phone || '').trim();
+      const email = (userData.email || '').trim().toLowerCase();
+      if (phone === trimmed || (email && email === lowered)) {
+        return userData;
+      }
+    } catch (e) {
+      // 손상된 데이터는 무시
+    }
+  }
+  return null;
+}
+
+/**
+ * 현재 로그인된 사용자 데이터 조회
+ * @returns {object|null}
+ */
+function getCurrentUserData() {
+  if (!state.currentUser) return null;
+  const raw = localStorage.getItem(`soundscape_user_${state.currentUser}`);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (e) { return null; }
+}
+
+/**
+ * 비밀번호 업데이트 (해시 + 평문 모두 갱신)
+ * @returns {Promise<boolean>}
+ */
+async function updateUserPassword(userId, newPassword) {
+  if (!userId || !newPassword) return false;
+  const raw = localStorage.getItem(`soundscape_user_${userId}`);
+  if (!raw) return false;
+  try {
+    const userData = JSON.parse(raw);
+    userData.passwordHash = await sha256(newPassword);
+    userData.passwordPlain = newPassword;
+    localStorage.setItem(`soundscape_user_${userId}`, JSON.stringify(userData));
+    return true;
+  } catch (e) {
+    console.error('[사운드스케이프] 비밀번호 업데이트 실패:', e);
+    return false;
+  }
+}
+
+/**
+ * [아이디/비밀번호 찾기] 모달 열기
+ * @param {'id'|'password'} mode
+ */
+function openFindModal(mode) {
+  const modal = document.getElementById('find-modal');
+  const title = document.getElementById('find-modal-title');
+  const contactInput = document.getElementById('find-contact-input');
+  const result = document.getElementById('find-result');
+  if (!modal || !title || !contactInput || !result) return;
+
+  if (mode === 'id') {
+    title.textContent = '아이디 찾기';
+  } else {
+    title.textContent = '비밀번호 찾기';
+  }
+  contactInput.value = '';
+  result.classList.add('hidden');
+  result.innerHTML = '';
+  modal.classList.remove('hidden');
+  setTimeout(() => contactInput.focus(), 50);
+}
+
+/**
+ * [아이디/비밀번호 찾기] 모달 닫기
+ */
+function closeFindModal() {
+  const modal = document.getElementById('find-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+/**
+ * [아이디/비밀번호 찾기] 검색 제출
+ */
+function submitFind() {
+  const contactInput = document.getElementById('find-contact-input');
+  const result = document.getElementById('find-result');
+  if (!contactInput || !result) return;
+
+  const contact = contactInput.value.trim();
+  if (!contact) {
+    result.innerHTML = '<p class="find-result-error">전화번호 또는 이메일을 입력해 주세요.</p>';
+    result.classList.remove('hidden');
+    return;
+  }
+
+  const user = findUserByContact(contact);
+  if (!user) {
+    result.innerHTML = `
+      <p class="find-result-error">등록된 정보를 찾을 수 없습니다.</p>
+      <p class="find-result-hint">입력하신 전화번호/이메일로 가입된 계정이 없거나<br>아이디/비밀번호 찾기용 정보가 등록되지 않은 계정입니다.</p>
+    `;
+    result.classList.remove('hidden');
+    return;
+  }
+
+  // 현재 모드(아이디/비밀번호)에 따라 다른 결과 표시
+  const mode = (document.getElementById('find-modal-title') || {}).textContent || '';
+  if (mode.includes('아이디')) {
+    result.innerHTML = `
+      <p>회원님의 아이디는</p>
+      <p class="find-result-value">${escapeHtml(user.id)}</p>
+      <p>입니다.</p>
+    `;
+  } else {
+    // 비밀번호 찾기 (로컬 데모: 평문 비밀번호 표시)
+    const pw = user.passwordPlain || '(평문 비밀번호 미저장 - 이전 버전 사용자)';
+    result.innerHTML = `
+      <p>회원님의 비밀번호는</p>
+      <p class="find-result-value">${escapeHtml(pw)}</p>
+      <p>입니다.</p>
+      <p class="find-result-hint">⚠ 보안을 위해 비밀번호를 변경하시는 것을 권장합니다.</p>
+    `;
+  }
+  result.classList.remove('hidden');
+}
+
+/**
+ * [나의 정보] 모달 열기
+ */
+function openMyInfoModal() {
+  if (!state.currentUser) {
+    showLofiError('로그인이 필요합니다.');
+    return;
+  }
+  const userData = getCurrentUserData();
+  if (!userData) {
+    showLofiError('사용자 정보를 불러올 수 없습니다.');
+    return;
+  }
+
+  const idEl = document.getElementById('myinfo-id');
+  const createdEl = document.getElementById('myinfo-created');
+  if (idEl) idEl.textContent = userData.id;
+  if (createdEl && userData.createdAt) {
+    try {
+      const d = new Date(userData.createdAt);
+      createdEl.textContent = `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+    } catch (e) {
+      createdEl.textContent = userData.createdAt;
+    }
+  }
+
+  // 초기 상태: 정보 보기
+  myInfoVerified = false;
+  showMyInfoSection('view');
+
+  const modal = document.getElementById('myinfo-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+/**
+ * [나의 정보] 모달 닫기
+ */
+function closeMyInfoModal() {
+  const modal = document.getElementById('myinfo-modal');
+  if (modal) modal.classList.add('hidden');
+  myInfoVerified = false;
+}
+
+/**
+ * [나의 정보] 섹션 전환 (view / verify / newpassword)
+ */
+function showMyInfoSection(name) {
+  const sections = ['view', 'verify', 'newpassword'];
+  sections.forEach(s => {
+    const el = document.getElementById(`myinfo-${s}`);
+    if (el) el.classList.toggle('hidden', s !== name);
+  });
+}
+
+/**
+ * [나의 정보] 비밀번호 변경 시작 — 본인 인증 단계로 이동
+ */
+function startPasswordChange() {
+  if (!state.currentUser) return;
+  const userData = getCurrentUserData();
+  if (!userData) return;
+
+  // 등록된 연락처가 없으면 인증 단계로 갈 수 없음
+  if (!userData.phone && !userData.email) {
+    showMyInfoError('verify', '등록된 전화번호/이메일이 없습니다. 회원가입 시 등록한 정보가 있는 계정에서만 비밀번호를 변경할 수 있습니다.');
+    return;
+  }
+
+  myInfoVerified = false;
+  const verifyInput = document.getElementById('myinfo-verify-input');
+  if (verifyInput) verifyInput.value = '';
+  showMyInfoError('verify', '');
+  showMyInfoSection('verify');
+  setTimeout(() => verifyInput && verifyInput.focus(), 50);
+}
+
+/**
+ * [나의 정보] 본인 인증 제출
+ */
+function submitMyInfoVerify() {
+  const input = document.getElementById('myinfo-verify-input');
+  if (!input) return;
+  const contact = input.value.trim();
+  if (!contact) {
+    showMyInfoError('verify', '전화번호 또는 이메일을 입력해 주세요.');
+    return;
+  }
+
+  const userData = getCurrentUserData();
+  if (!userData) {
+    showMyInfoError('verify', '사용자 정보를 불러올 수 없습니다.');
+    return;
+  }
+
+  const contactLower = contact.toLowerCase();
+  const phone = (userData.phone || '').trim();
+  const email = (userData.email || '').trim().toLowerCase();
+
+  if (phone === contact || (email && email === contactLower)) {
+    myInfoVerified = true;
+    const newPw = document.getElementById('myinfo-new-pw');
+    const newPwConfirm = document.getElementById('myinfo-new-pw-confirm');
+    if (newPw) newPw.value = '';
+    if (newPwConfirm) newPwConfirm.value = '';
+    showMyInfoError('pw', '');
+    showMyInfoSection('newpassword');
+    setTimeout(() => newPw && newPw.focus(), 50);
+  } else {
+    showMyInfoError('verify', '등록된 정보와 일치하지 않습니다.');
+    myInfoVerified = false;
+  }
+}
+
+/**
+ * [나의 정보] 새 비밀번호 저장
+ */
+async function submitMyInfoNewPassword() {
+  if (!myInfoVerified) {
+    showMyInfoError('pw', '본인 인증을 먼저 완료해 주세요.');
+    return;
+  }
+  if (!state.currentUser) return;
+
+  const newPw = (document.getElementById('myinfo-new-pw') || {}).value || '';
+  const newPwConfirm = (document.getElementById('myinfo-new-pw-confirm') || {}).value || '';
+
+  if (newPw.length < 6) {
+    showMyInfoError('pw', '비밀번호는 6자 이상이어야 합니다.');
+    return;
+  }
+  if (newPw !== newPwConfirm) {
+    showMyInfoError('pw', '비밀번호가 일치하지 않습니다.');
+    return;
+  }
+
+  const success = await updateUserPassword(state.currentUser, newPw);
+  if (success) {
+    showLofiError('비밀번호가 성공적으로 변경되었습니다.');
+    myInfoVerified = false;
+    showMyInfoSection('view');
+  } else {
+    showMyInfoError('pw', '비밀번호 변경에 실패했습니다.');
+  }
+}
+
+/**
+ * [나의 정보] 섹션별 에러 메시지 표시
+ */
+function showMyInfoError(type, msg) {
+  const errorEl = document.getElementById(`myinfo-${type}-error`);
+  if (!errorEl) return;
+  if (msg) {
+    errorEl.textContent = msg;
+    errorEl.classList.remove('hidden');
+  } else {
+    errorEl.textContent = '';
+    errorEl.classList.add('hidden');
+  }
 }
 
 /**
@@ -305,13 +623,15 @@ registerForm.addEventListener('submit', async (e) => {
   const userId = registerIdInput.value.trim();
   const password = registerPwInput.value;
   const passwordConfirm = registerPwConfirmInput.value;
+  const phone = (document.getElementById('register-phone') || {}).value || '';
+  const email = (document.getElementById('register-email') || {}).value || '';
 
   if (password !== passwordConfirm) {
     showAuthError(registerError, '비밀번호가 일치하지 않습니다.');
     return;
   }
 
-  const result = await registerUser(userId, password);
+  const result = await registerUser(userId, password, phone, email);
   if (result.success) {
     showAuthError(registerError, result.message);
     setTimeout(() => {
@@ -2090,6 +2410,129 @@ function initCardUIVisibility() {
     toggleCardUIPin();
   });
 }
+
+// ============================================
+// [17] 아이디/비밀번호 찾기 + 나의 정보 모달 이벤트
+// ============================================
+
+(function initFindAndMyInfoEvents() {
+  // 로그인 화면: 아이디 찾기 / 비밀번호 찾기 링크
+  const showFindIdBtn = document.getElementById('show-find-id-btn');
+  if (showFindIdBtn) {
+    showFindIdBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openFindModal('id');
+    });
+  }
+  const showFindPasswordBtn = document.getElementById('show-find-password-btn');
+  if (showFindPasswordBtn) {
+    showFindPasswordBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openFindModal('password');
+    });
+  }
+
+  // 찾기 모달: 제출 / 닫기 (X / 하단)
+  const findSubmitBtn = document.getElementById('find-submit-btn');
+  if (findSubmitBtn) {
+    findSubmitBtn.addEventListener('click', submitFind);
+  }
+  const findContactInput = document.getElementById('find-contact-input');
+  if (findContactInput) {
+    findContactInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitFind();
+      }
+    });
+  }
+  const findCloseBtn = document.getElementById('find-close-btn');
+  if (findCloseBtn) findCloseBtn.addEventListener('click', closeFindModal);
+  const findCloseX = document.getElementById('find-close-x');
+  if (findCloseX) findCloseX.addEventListener('click', closeFindModal);
+
+  // 찾기 모달: 백드롭(어두운 영역) 클릭 시 닫기
+  const findModal = document.getElementById('find-modal');
+  if (findModal) {
+    findModal.addEventListener('click', (e) => {
+      if (e.target === findModal) closeFindModal();
+    });
+  }
+
+  // 헤더: 나의 정보 버튼
+  const myinfoBtn = document.getElementById('myinfo-btn');
+  if (myinfoBtn) {
+    myinfoBtn.addEventListener('click', openMyInfoModal);
+  }
+
+  // 나의 정보 모달: 닫기 (X / 영역 외부)
+  const myinfoCloseX = document.getElementById('myinfo-close-x');
+  if (myinfoCloseX) myinfoCloseX.addEventListener('click', closeMyInfoModal);
+  const myinfoModal = document.getElementById('myinfo-modal');
+  if (myinfoModal) {
+    myinfoModal.addEventListener('click', (e) => {
+      if (e.target === myinfoModal) closeMyInfoModal();
+    });
+  }
+
+  // 1단계 → 2단계: 비밀번호 변경 시작
+  const myinfoChangePwBtn = document.getElementById('myinfo-change-password-btn');
+  if (myinfoChangePwBtn) {
+    myinfoChangePwBtn.addEventListener('click', startPasswordChange);
+  }
+
+  // 2단계: 본인 인증
+  const myinfoVerifyBtn = document.getElementById('myinfo-verify-btn');
+  if (myinfoVerifyBtn) {
+    myinfoVerifyBtn.addEventListener('click', submitMyInfoVerify);
+  }
+  const myinfoVerifyInput = document.getElementById('myinfo-verify-input');
+  if (myinfoVerifyInput) {
+    myinfoVerifyInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitMyInfoVerify();
+      }
+    });
+  }
+  const myinfoVerifyCancel = document.getElementById('myinfo-verify-cancel-btn');
+  if (myinfoVerifyCancel) {
+    myinfoVerifyCancel.addEventListener('click', () => showMyInfoSection('view'));
+  }
+
+  // 3단계: 새 비밀번호
+  const myinfoSavePwBtn = document.getElementById('myinfo-save-pw-btn');
+  if (myinfoSavePwBtn) {
+    myinfoSavePwBtn.addEventListener('click', submitMyInfoNewPassword);
+  }
+  const myinfoNewPw = document.getElementById('myinfo-new-pw');
+  const myinfoNewPwConfirm = document.getElementById('myinfo-new-pw-confirm');
+  const onPwEnter = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitMyInfoNewPassword();
+    }
+  };
+  if (myinfoNewPw) myinfoNewPw.addEventListener('keydown', onPwEnter);
+  if (myinfoNewPwConfirm) myinfoNewPwConfirm.addEventListener('keydown', onPwEnter);
+  const myinfoSaveCancel = document.getElementById('myinfo-save-cancel-btn');
+  if (myinfoSaveCancel) {
+    myinfoSaveCancel.addEventListener('click', () => showMyInfoSection('view'));
+  }
+
+  // ESC 키로 열린 모달 닫기
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (findModal && !findModal.classList.contains('hidden')) {
+        closeFindModal();
+      } else if (myinfoModal && !myinfoModal.classList.contains('hidden')) {
+        closeMyInfoModal();
+      }
+    }
+  });
+
+  console.log('[사운드스케이프] 아이디/비밀번호 찾기 + 나의 정보 모달 이벤트 초기화 완료');
+})();
 
 /**
  * YouTube Player 사전 생성 (race condition 안전판)

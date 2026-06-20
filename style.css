@@ -243,6 +243,284 @@ body::before {
   color: var(--neon-purple);
 }
 
+/* [신규] 회원가입 폼 내 안내 텍스트 */
+.register-hint {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-align: center;
+  margin: 0.2rem 0 0.6rem 0;
+  line-height: 1.4;
+}
+
+/* [신규] 아이디/비밀번호 찾기 링크 (로그인 화면 하단) */
+.auth-find-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px dashed var(--border-color);
+}
+
+.auth-find-link {
+  background: transparent;
+  border: none;
+  color: var(--neon-cyan);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.3rem 0.6rem;
+  transition: color var(--transition-fast);
+  text-decoration: none;
+  font-family: inherit;
+}
+
+.auth-find-link:hover {
+  color: var(--neon-blue);
+  text-decoration: underline;
+}
+
+.auth-divider {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  user-select: none;
+}
+
+/* ============================================
+   [신규] 찾기/나의정보 모달 (Find & MyInfo Modal)
+   ============================================ */
+.find-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 20, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+  animation: modalFadeIn 0.25s ease;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.find-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.8rem;
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  box-shadow:
+    0 0 30px rgba(125, 207, 255, 0.15),
+    0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: modalSlideUp 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.find-modal-wide {
+  max-width: 420px;
+}
+
+@keyframes modalSlideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.find-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.3rem;
+}
+
+.find-modal-header h2 {
+  color: var(--text-bright);
+  font-size: 1.25rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.find-modal-x {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.4rem;
+  transition: color var(--transition-fast);
+}
+
+.find-modal-x:hover {
+  color: var(--neon-pink);
+}
+
+.find-modal-desc {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin: 0 0 0.4rem 0;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.find-modal-desc strong {
+  color: var(--neon-cyan);
+}
+
+/* [결과 표시 박스] */
+.find-result {
+  padding: 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--neon-cyan);
+  border-radius: var(--radius-md);
+  text-align: center;
+  animation: resultFadeIn 0.3s ease;
+}
+
+@keyframes resultFadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.find-result p {
+  margin: 0.3rem 0;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.find-result-value {
+  font-size: 1.3rem !important;
+  font-weight: 700;
+  color: var(--neon-cyan) !important;
+  padding: 0.5rem 0.8rem;
+  margin: 0.5rem 0 !important;
+  background: rgba(125, 207, 255, 0.1);
+  border-radius: var(--radius-sm);
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+  letter-spacing: 1px;
+}
+
+.find-result-error {
+  color: var(--neon-pink) !important;
+  font-weight: 600;
+  font-size: 0.95rem !important;
+}
+
+.find-result-hint {
+  font-size: 0.75rem !important;
+  color: var(--text-secondary) !important;
+  margin-top: 0.5rem !important;
+  line-height: 1.4 !important;
+}
+
+.find-close-btn {
+  margin-top: 0.4rem;
+  text-align: center;
+}
+
+/* ============================================
+   [신규] 나의 정보 모달 내부
+   ============================================ */
+.myinfo-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  animation: modalSlideUp 0.25s ease;
+}
+
+.myinfo-section.hidden {
+  display: none !important;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 0.9rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition-fast);
+}
+
+.info-row:hover {
+  border-color: var(--neon-cyan);
+}
+
+.info-label {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.info-value {
+  color: var(--neon-cyan);
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+  font-size: 0.95rem;
+  word-break: break-all;
+  text-align: right;
+}
+
+.myinfo-action {
+  margin-top: 0.5rem;
+}
+
+.myinfo-step-title {
+  color: var(--neon-cyan);
+  font-size: 1rem;
+  margin: 0 0 0.3rem 0;
+  text-align: center;
+  font-weight: 600;
+}
+
+.myinfo-step-desc {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  margin: 0 0 0.3rem 0;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.myinfo-step-desc strong {
+  color: var(--neon-cyan);
+}
+
+.myinfo-step-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+
+.myinfo-step-buttons .login-btn {
+  flex: 2;
+}
+
+.myinfo-step-buttons .auth-find-link {
+  flex: 1;
+  padding: 0.7rem 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+.myinfo-step-buttons .auth-find-link:hover {
+  color: var(--neon-pink);
+  border-color: var(--neon-pink);
+  text-decoration: none;
+}
+
 /* ============================================
    앱 레이아웃 (App Layout)
    ============================================ */
