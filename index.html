@@ -9,22 +9,72 @@
 </head>
 <body>
 
-  <div id="login-overlay" class="login-overlay">
+  <!-- ============================================
+       인증 모달 (로그인 / 회원가입)
+       ============================================ -->
+  <div id="auth-overlay" class="login-overlay">
     <div class="login-modal">
       <div class="login-icon">&#9835;</div>
       <h1 class="login-title">Soundscape Mixer</h1>
       <p class="login-subtitle">나만의 사운드스케이프를 만들어 보세요</p>
+
+      <!-- 로그인 폼 -->
       <form id="login-form" class="login-form">
         <input
           type="text"
-          id="username-input"
+          id="login-id"
           class="login-input"
-          placeholder="이름을 입력하세요"
-          autocomplete="off"
+          placeholder="아이디"
+          autocomplete="username"
           required
         />
-        <button type="submit" class="login-btn">시작하기</button>
+        <input
+          type="password"
+          id="login-pw"
+          class="login-input"
+          placeholder="비밀번호"
+          autocomplete="current-password"
+          required
+        />
+        <button type="submit" class="login-btn">로그인</button>
+        <p id="login-error" class="auth-error hidden"></p>
       </form>
+
+      <!-- 회원가입 폼 (기본 숨김) -->
+      <form id="register-form" class="login-form hidden">
+        <input
+          type="text"
+          id="register-id"
+          class="login-input"
+          placeholder="아이디 (4자 이상)"
+          autocomplete="username"
+          required
+        />
+        <input
+          type="password"
+          id="register-pw"
+          class="login-input"
+          placeholder="비밀번호 (6자 이상)"
+          autocomplete="new-password"
+          required
+        />
+        <input
+          type="password"
+          id="register-pw-confirm"
+          class="login-input"
+          placeholder="비밀번호 확인"
+          autocomplete="new-password"
+          required
+        />
+        <button type="submit" class="login-btn">회원가입</button>
+        <p id="register-error" class="auth-error hidden"></p>
+      </form>
+
+      <!-- 로그인/회원가입 전환 버튼 -->
+      <div class="auth-switch">
+        <button type="button" id="show-register-btn" class="auth-switch-btn">회원가입</button>
+        <button type="button" id="show-login-btn" class="auth-switch-btn hidden">로그인으로 돌아가기</button>
+      </div>
     </div>
   </div>
 
@@ -42,95 +92,107 @@
 
     <main class="main">
 
-      <section class="sound-grid">
-        <div class="sound-card" data-channel="0">
-          <div class="card-icon rain-icon">&#127783;</div>
-          <h3 class="card-title">빗소리</h3>
-          <p class="card-desc">YouTube ASMR 스트리밍</p>
-          <div class="card-controls">
-            <button class="play-btn" data-channel="0">
-              <span class="play-icon">&#9654;</span>
-            </button>
-            <div class="slider-wrap">
-              <input type="range" class="volume-slider" data-channel="0" min="0" max="100" value="50" />
-              <span class="volume-value" data-channel="0">50</span>
-            </div>
-          </div>
+      <!-- 4번째 채널: Last.fm + YouTube 가사 영상 매칭 -->
+      <section class="lofi-section">
+        <h2 class="section-title">음악 검색</h2>
+
+        <!-- Last.fm 검색 UI -->
+        <div class="lofi-search-bar">
+          <input
+            type="text"
+            id="lofi-search-input"
+            class="login-input"
+            placeholder="듣고 싶은 가수나 노래 제목을 입력하세요!"
+            autocomplete="off"
+          />
+          <button id="lofi-search-btn" class="login-btn">검색</button>
         </div>
 
-        <div class="sound-card" data-channel="1">
-          <div class="card-icon fire-icon">&#128293;</div>
-          <h3 class="card-title">모닥불</h3>
-          <p class="card-desc">YouTube ASMR 스트리밍</p>
-          <div class="card-controls">
-            <button class="play-btn" data-channel="1">
-              <span class="play-icon">&#9654;</span>
-            </button>
-            <div class="slider-wrap">
-              <input type="range" class="volume-slider" data-channel="1" min="0" max="100" value="50" />
-              <span class="volume-value" data-channel="1">50</span>
+        <p id="lofi-search-error" class="auth-error hidden"></p>
+
+        <!-- Last.fm 검색 결과 리스트 -->
+        <ul id="lofi-results-list" class="lofi-results-list">
+          <!-- 검색 결과가 여기에 동적으로 추가됨 -->
+        </ul>
+
+        <!-- 4번째 채널: YouTube IFrame 플레이어 카드 -->
+        <div id="lofi-card" class="lofi-card" data-channel="3">
+          <div class="lofi-card-album">
+            <img id="lofi-card-thumbnail" class="lofi-card-thumbnail" alt="" style="display: none;" />
+            <div class="lofi-card-icon-large">&#127911;</div>
+            <div class="lofi-card-overlay">
+              <h3 class="lofi-card-title">검색된 곡</h3>
+              <p class="lofi-card-artist">아직 선택된 곡이 없습니다</p>
             </div>
           </div>
-        </div>
-
-        <div class="sound-card" data-channel="2">
-          <div class="card-icon wave-icon">&#127754;</div>
-          <h3 class="card-title">잔잔한 파도</h3>
-          <p class="card-desc">YouTube 자연음 스트리밍</p>
-          <div class="card-controls">
-            <button class="play-btn" data-channel="2">
-              <span class="play-icon">&#9654;</span>
-            </button>
-            <div class="slider-wrap">
-              <input type="range" class="volume-slider" data-channel="2" min="0" max="100" value="50" />
-              <span class="volume-value" data-channel="2">50</span>
+          <div class="lofi-card-body">
+            <!-- [상단] 이전 · 재생 · 다음 (중앙 정렬) -->
+            <div class="lofi-card-player-section">
+              <button id="lofi-prev-btn" class="lofi-prev-btn" title="이전 곡" aria-label="이전 곡">&#9198;</button>
+              <button class="lofi-play-btn" data-channel="3">
+                <span class="lofi-play-icon">&#9654;</span>
+              </button>
+              <button id="lofi-next-btn" class="lofi-next-btn" title="다음 곡" aria-label="다음 곡">&#9197;</button>
             </div>
-          </div>
-        </div>
-
-        <div class="sound-card" data-channel="3">
-          <div class="card-icon night-icon">&#127911;</div>
-          <h3 class="card-title">로파이 음악</h3>
-          <p class="card-desc">YouTube 로파이 스트리밍</p>
-          <div class="card-controls">
-            <button class="play-btn" data-channel="3">
-              <span class="play-icon">&#9654;</span>
-            </button>
-            <div class="slider-wrap">
-              <input type="range" class="volume-slider" data-channel="3" min="0" max="100" value="50" />
-              <span class="volume-value" data-channel="3">50</span>
+            <!-- [시간 표시] progress bar 바로 위, 좌: 현재시각 / 우: 영상길이 -->
+            <div class="lofi-progress-time">
+              <span class="lofi-progress-current">0:00</span>
+              <span class="lofi-progress-duration">--:--</span>
+            </div>
+            <!-- [progress bar] 클릭 시 해당 위치로 seek -->
+            <div class="lofi-progress-wrap" id="lofi-progress-wrap" title="클릭하여 위치 이동">
+              <div class="lofi-progress-bar" id="lofi-progress-bar">
+                <div class="lofi-progress-fill"></div>
+                <div class="lofi-progress-handle"></div>
+              </div>
+            </div>
+            <!-- [하단] 볼륨 바 (좌측 정렬, 작은 너비) -->
+            <div class="lofi-card-volume-section">
+              <span class="lofi-volume-icon">&#128266;</span>
+              <div class="lofi-volume-slider-container">
+                <input
+                  type="range"
+                  class="lofi-volume-slider"
+                  data-channel="3"
+                  min="0"
+                  max="100"
+                  value="70"
+                />
+              </div>
+              <span class="lofi-volume-value" data-channel="3">70</span>
             </div>
           </div>
         </div>
       </section>
 
+      <!-- ============================================
+           내 플레이리스트 (Playlist)
+           ============================================ -->
+      <section class="playlist-section">
+        <div class="playlist-header">
+          <h2 class="section-title">내 플레이리스트</h2>
+          <div class="playlist-meta">
+            <span id="playlist-count" class="playlist-count">0곡</span>
+            <button id="clear-playlist-btn" class="playlist-clear-btn" style="display: none;" title="플레이리스트 전체 삭제">전체 삭제</button>
+          </div>
+        </div>
+        <ul id="playlist-list" class="playlist-list">
+          <!-- 플레이리스트 항목이 여기에 동적으로 추가됨 -->
+        </ul>
+        <p id="playlist-empty" class="playlist-empty">
+          아직 추가된 곡이 없습니다. 곡을 검색하고 &#39;+ 추가&#39; 버튼을 눌러 보세요.
+        </p>
+      </section>
+
+      <!-- 비주얼라이저 (재생 상태 기반) -->
       <section class="visualizer-section">
-        <h2 class="section-title">Audio Visualizer</h2>
+        <h2 class="section-title">실시간 오디오 비주얼라이저</h2>
+        <p class="visualizer-desc">재생 중인 음악에 맞춰 실시간으로 움직이는 비주얼라이저입니다.</p>
         <div id="visualizer" class="visualizer"></div>
       </section>
 
-      <section class="timer-section">
-        <h2 class="section-title">타이머 &amp; 페이드아웃</h2>
-        <div class="timer-buttons">
-          <button class="timer-btn" data-minutes="1">1분</button>
-          <button class="timer-btn" data-minutes="5">5분</button>
-          <button class="timer-btn" data-minutes="10">10분</button>
-          <button class="timer-btn" data-minutes="30">30분</button>
-          <button class="timer-btn timer-stop" data-minutes="0">정지</button>
-        </div>
-        <div id="timer-display" class="timer-display hidden">
-          <span class="timer-label">남은 시간</span>
-          <span id="timer-countdown" class="timer-countdown">00:00</span>
-        </div>
-      </section>
-
-      <section class="preset-section">
-        <h2 class="section-title">프리셋 관리</h2>
-        <div class="preset-buttons">
-          <button id="save-preset-btn" class="preset-btn save-btn">프리셋 저장</button>
-          <button id="load-preset-btn" class="preset-btn load-btn">프리셋 불러오기</button>
-        </div>
-        <p id="preset-status" class="preset-status"></p>
+      <section class="preset-section" style="display: none;">
+        <!-- 프리셋 기능 제거됨 (사용자 요청) -->
       </section>
 
     </main>
@@ -141,17 +203,12 @@
   </div>
 
   <!-- ============================================
-       숨겨진 YouTube 플레이어 컨테이너
-       - 백그라운드 사운드 레이어로 사용
-       - YouTube는 1x1 픽셀 iframe에서의 재생을 거부하므로
-         최소 200x200 크기를 유지하고 position으로 화면 밖 배치
+       숨겨진 YouTube IFrame 플레이어 (4번째 채널 전용)
+       - lyrics 또는 가사 영상을 백그라운드에서 재생
+       - 가사 영상은 음원 트랙이 아니므로 저작권 차단이 적음
+       - 화면에 보이지 않도록 처리 (200x200 최소 크기 + 화면 밖 배치)
        ============================================ -->
-  <div id="yt-players" class="yt-players-hidden">
-    <div id="yt-player-0"></div>
-    <div id="yt-player-1"></div>
-    <div id="yt-player-2"></div>
-    <div id="yt-player-3"></div>
-  </div>
+  <div id="yt-player-3" class="yt-player-hidden"></div>
 
   <!-- YouTube IFrame Player API 로드 (script.js보다 먼저 로드되어야 함) -->
   <script src="https://www.youtube.com/iframe_api"></script>

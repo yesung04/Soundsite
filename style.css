@@ -213,6 +213,36 @@ body::before {
   transform: translateY(0);
 }
 
+/* --- 인증 에러 메시지 --- */
+.auth-error {
+  color: var(--neon-pink);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  min-height: 1.2rem;
+  transition: opacity var(--transition-normal);
+}
+
+/* --- 로그인/회원가입 전환 버튼 --- */
+.auth-switch {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.auth-switch-btn {
+  background: transparent;
+  border: none;
+  color: var(--neon-blue);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.4rem 0.8rem;
+  transition: color var(--transition-fast);
+}
+
+.auth-switch-btn:hover {
+  color: var(--neon-purple);
+}
+
 /* ============================================
    앱 레이아웃 (App Layout)
    ============================================ */
@@ -297,117 +327,586 @@ body::before {
   margin-bottom: 2.5rem;
 }
 
-.sound-card {
+/* ============================================
+   4번째 채널: Last.fm + YouTube 하이브리드 (Lo-Fi Section)
+   ============================================ */
+
+/*
+ * [하이브리드 섹션 설계]
+ * Last.fm API로 곡 정보를 검색하고,
+ * YouTube IFrame Player API로 실제 음원을 백그라운드에서 재생합니다.
+ * 검색창 + 결과 리스트 + 4번째 채널 카드로 구성됩니다.
+ */
+.lofi-section {
+  margin-bottom: 2.5rem;
+}
+
+.lofi-desc {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 1.2rem;
+  line-height: 1.5;
+}
+
+/* Last.fm 검색 바 */
+.lofi-search-bar {
+  display: flex;
+  gap: 0.8rem;
+  margin-bottom: 1.2rem;
+}
+
+.lofi-search-bar .login-input {
+  flex: 1;
+}
+
+.lofi-search-bar .login-btn {
+  flex-shrink: 0;
+  padding: 0.85rem 2rem;
+}
+
+/* Last.fm 검색 결과 리스트 */
+.lofi-results-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2rem 0;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* 각 검색 결과 항목 - 호버 시 cyan glow 효과 */
+.lofi-result-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  margin-bottom: 0.8rem;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  padding: 1.5rem;
-  text-align: center;
   transition: all var(--transition-normal);
+  cursor: pointer;
   position: relative;
   overflow: hidden;
 }
 
-.sound-card::before {
+.lofi-result-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(125, 207, 255, 0.1), transparent);
+  transition: left 0.6s ease;
+}
+
+.lofi-result-item:hover {
+  border-color: var(--neon-cyan);
+  box-shadow:
+    0 0 20px rgba(125, 207, 255, 0.4),
+    0 0 40px rgba(125, 207, 255, 0.2),
+    inset 0 0 20px rgba(125, 207, 255, 0.05);
+  transform: translateY(-3px) scale(1.01);
+}
+
+.lofi-result-item:hover::before {
+  left: 100%;
+}
+
+/* 앨범 커버 이미지 */
+.lofi-result-thumbnail {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
+}
+
+.lofi-result-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.lofi-result-item:hover .lofi-result-thumbnail img {
+  transform: scale(1.1);
+}
+
+/* 트랙 정보 영역 */
+.lofi-result-info {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.lofi-result-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-bright);
+  margin-bottom: 0.3rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lofi-result-item:hover .lofi-result-title {
+  color: var(--neon-cyan);
+}
+
+.lofi-result-artist {
+  font-size: 0.85rem;
+  color: var(--neon-cyan);
+  margin-bottom: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lofi-result-meta {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 재생 버튼 - 호버 시 cyan glow 효과 */
+.lofi-result-actions {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.lofi-result-play-btn {
+  padding: 0.6rem 1.2rem;
+  background: linear-gradient(135deg, var(--neon-cyan), var(--neon-blue));
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(125, 207, 255, 0.3);
+}
+
+.lofi-result-play-btn:hover {
+  transform: scale(1.08);
+  box-shadow:
+    0 0 20px rgba(125, 207, 255, 0.6),
+    0 0 40px rgba(125, 207, 255, 0.3);
+}
+
+.lofi-result-play-btn:active {
+  transform: scale(0.95);
+}
+
+/* Last.fm 결과 리스트 스크롤바 */
+.lofi-results-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.lofi-results-list::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+  border-radius: 4px;
+}
+
+.lofi-results-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.lofi-results-list::-webkit-scrollbar-thumb:hover {
+  background: var(--neon-cyan);
+}
+
+/* ============================================
+   4번째 채널 카드 (Lo-Fi Card)
+   ============================================ */
+
+/*
+ * [카드 구조]
+ * - lofi-card-album: 앨범 아트/곡 정보 표시 영역 (180px 높이)
+ * - lofi-card-overlay: 곡 제목/아티스트 텍스트 오버레이
+ * - lofi-card-body: 재생/볼륨 컨트롤 영역
+ *
+ * [디자인 변경]
+ * YouTube iframe 대신 HTML5 audio로 재생하므로
+ * 비주얼은 그라데이션 배경 + 음악 아이콘 + 곡 정보로 구성됩니다.
+ */
+.lofi-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0;
+  text-align: center;
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+  margin-top: 1rem;
+}
+
+.lofi-card::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple));
+  background: linear-gradient(90deg, var(--neon-cyan), var(--neon-blue));
   opacity: 0;
   transition: opacity var(--transition-normal);
+  z-index: 5;
 }
 
-.sound-card:hover {
-  border-color: rgba(122, 162, 247, 0.3);
-  transform: translateY(-3px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+/* 앨범 아트 영역 - 그라데이션 배경 + 음악 아이콘 */
+.lofi-card-album {
+  width: 100%;
+  height: 180px;
+  position: relative;
+  background: linear-gradient(135deg, #1a1b26 0%, #24283b 50%, #1a1b26 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
-.sound-card:hover::before {
-  opacity: 1;
+/* lofi-card 썸네일 (YouTube 영상 이미지) */
+.lofi-card-thumbnail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  transition: opacity var(--transition-normal);
+  background: var(--bg-tertiary);
 }
 
-.sound-card.active {
-  border-color: var(--neon-blue);
-  box-shadow: 0 0 20px var(--shadow-neon-blue);
+.lofi-card.active .lofi-card-thumbnail {
+  /* 곡이 활성화되면 썸네일 살짝 어둡게 → 텍스트 가독성 ↑ */
+  filter: brightness(0.7);
 }
 
-.sound-card.active::before {
-  opacity: 1;
+.lofi-card-album::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 30% 50%, rgba(122, 162, 247, 0.1) 0%, transparent 60%),
+              radial-gradient(circle at 70% 50%, rgba(187, 154, 247, 0.1) 0%, transparent 60%);
+  pointer-events: none;
 }
 
-/* --- 에러 상태 카드 (임베드 불가 등) --- */
-.sound-card.error {
-  border-color: rgba(247, 118, 142, 0.4);
+.lofi-card-icon-large {
+  font-size: 4rem;
   opacity: 0.6;
+  z-index: 1;
+  position: relative;
+  animation: musicPulse 3s ease-in-out infinite;
 }
 
-.sound-card.error::before {
-  background: linear-gradient(90deg, var(--neon-pink), rgba(247, 118, 142, 0.3));
-  opacity: 1;
+@keyframes musicPulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.1); opacity: 0.8; }
 }
 
-.error-text {
-  color: var(--neon-pink) !important;
-  font-size: 0.75rem !important;
-}
-
-.card-icon {
-  font-size: 2.5rem;
-  margin-bottom: 0.8rem;
-  display: block;
-}
-
-.card-title {
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--text-bright);
-  margin-bottom: 0.3rem;
-}
-
-.card-desc {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin-bottom: 1.2rem;
-}
-
-.card-controls {
+/* 곡 정보 오버레이 */
+.lofi-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    0deg,
+    rgba(22, 22, 30, 0.95) 0%,
+    rgba(22, 22, 30, 0.6) 50%,
+    transparent 100%
+  );
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  justify-content: flex-end;
+  padding: 1.2rem;
+  gap: 0.3rem;
+  z-index: 2;
+  pointer-events: none;
 }
 
-/* 재생/일시정지 버튼 */
-.play-btn {
-  width: 48px;
-  height: 48px;
+.lofi-card.active .lofi-card-overlay {
+  background: linear-gradient(
+    0deg,
+    rgba(22, 22, 30, 0.4) 0%,
+    transparent 100%
+  );
+}
+
+.lofi-card.active .lofi-card-icon-large {
+  animation: none;
+  opacity: 0.3;
+}
+
+.lofi-card.loading .lofi-card-icon-large {
+  animation: loadingSpin 1.5s linear infinite;
+}
+
+@keyframes loadingSpin {
+  0% { transform: rotate(0deg) scale(1); opacity: 0.6; }
+  50% { transform: rotate(180deg) scale(1.1); opacity: 0.9; }
+  100% { transform: rotate(360deg) scale(1); opacity: 0.6; }
+}
+
+.lofi-card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-bright);
+  margin-bottom: 0.2rem;
+  padding: 0 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.lofi-card-artist {
+  font-size: 0.9rem;
+  color: var(--neon-cyan);
+  padding: 0 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* 카드 하단 컨트롤 영역 */
+.lofi-card-body {
+  padding: 1.2rem 1.5rem 1.5rem 1.5rem;
+}
+
+/* ============================================
+   lofi-card UI 자동 숨김/노출 (Auto-hide Controls)
+   - 기본: 컨트롤 숨김 (opacity 0, pointer-events none)
+   - 카드 호버 OR .ui-visible 클래스: 부드럽게 표시
+   - 클릭으로 ui-pinned: 마우스 떠나도 계속 표시
+   ============================================ */
+.lofi-card-player-section,
+.lofi-progress-time,
+.lofi-progress-wrap,
+.lofi-card-volume-section {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+.lofi-card:hover .lofi-card-player-section,
+.lofi-card:hover .lofi-progress-time,
+.lofi-card:hover .lofi-progress-wrap,
+.lofi-card:hover .lofi-card-volume-section,
+.lofi-card.ui-visible .lofi-card-player-section,
+.lofi-card.ui-visible .lofi-progress-time,
+.lofi-card.ui-visible .lofi-progress-wrap,
+.lofi-card.ui-visible .lofi-card-volume-section {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* [신규] 재생 버튼 전용 중앙 섹션 (이전 | 재생 | 다음) */
+.lofi-card-player-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  padding: 0;
+}
+
+/* [신규] 이전/다음 곡 버튼 (재생 버튼보다 작은 원형) */
+.lofi-prev-btn,
+.lofi-next-btn {
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
-  border: 2px solid var(--border-color);
+  border: 1.5px solid var(--border-color);
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 1.1rem;
+  font-size: 1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all var(--transition-normal);
+  flex-shrink: 0;
+  font-family: inherit;
+  padding: 0;
+  line-height: 1;
 }
 
-.play-btn:hover {
-  border-color: var(--neon-blue);
-  color: var(--neon-blue);
-  box-shadow: 0 0 15px var(--shadow-neon-blue);
+.lofi-prev-btn:hover,
+.lofi-next-btn:hover {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  box-shadow: 0 0 15px rgba(125, 207, 255, 0.4);
+  transform: scale(1.08);
 }
 
-.play-btn.playing {
-  border-color: var(--neon-purple);
-  background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+.lofi-prev-btn:active,
+.lofi-next-btn:active {
+  transform: scale(0.95);
+}
+
+/* [신규] 하단 섹션: 가로 볼륨 바 (좌측 정렬, 작은 너비) */
+.lofi-card-volume-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+  padding: 0.2rem 0;
+  justify-content: flex-start;
+  max-width: 200px;
+}
+
+/* [구버전 호환] lofi-card-bottom-section은 새 레이아웃에서 미사용 */
+.lofi-card-bottom-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-top: 0.5rem;
+  padding: 0.2rem 0;
+}
+
+/* [구버전 호환] lofi-card-controls는 새 레이아웃에서 미사용 (이전 모바일 미디어쿼리 잔존) */
+.lofi-card-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.lofi-card:hover {
+  border-color: rgba(125, 207, 255, 0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+.lofi-card:hover::before {
+  opacity: 1;
+}
+
+.lofi-card.active {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 20px rgba(125, 207, 255, 0.4);
+}
+
+.lofi-card.active::before {
+  opacity: 1;
+}
+
+.lofi-card.error {
+  border-color: rgba(247, 118, 142, 0.4);
+  opacity: 0.7;
+}
+
+/* 재생/일시정지 버튼 — 더 크게 + 중앙에 어울리는 비주얼 */
+.lofi-play-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid var(--neon-cyan);
+  background: var(--bg-primary);
+  color: var(--neon-cyan);
+  font-size: 1.4rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-normal);
+  flex-shrink: 0;
+  box-shadow: 0 0 12px rgba(125, 207, 255, 0.25);
+}
+
+.lofi-play-btn:hover {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  box-shadow: 0 0 20px rgba(125, 207, 255, 0.4);
+  transform: scale(1.05);
+}
+
+.lofi-play-btn.playing {
+  border-color: var(--neon-cyan);
+  background: linear-gradient(135deg, var(--neon-cyan), var(--neon-blue));
   color: #fff;
-  box-shadow: 0 0 20px var(--shadow-neon-purple);
+  box-shadow: 0 0 25px rgba(125, 207, 255, 0.5);
+}
+
+/* 볼륨 슬라이더 영역 */
+.lofi-slider-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.lofi-volume-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  outline: none;
+  transition: background var(--transition-fast);
+}
+
+.lofi-volume-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+}
+
+.lofi-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--neon-cyan);
+  cursor: pointer;
+  margin-top: -6px;
+  box-shadow: 0 0 10px rgba(125, 207, 255, 0.5);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.lofi-volume-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 20px rgba(125, 207, 255, 0.7);
+}
+
+.lofi-volume-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--neon-cyan);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 10px rgba(125, 207, 255, 0.5);
+}
+
+.lofi-volume-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--neon-cyan);
+  min-width: 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 /* 볼륨 슬라이더 */
@@ -525,129 +1024,213 @@ body::before {
 }
 
 /* ============================================
-   타이머 섹션 (Timer Section)
+   프리셋 섹션 (Preset Section) - 비활성화됨
+   사용자 요청으로 프리셋 저장/불러오기 기능 완전 제거
    ============================================ */
-.timer-section {
-  margin-bottom: 2.5rem;
-}
-
-.timer-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.8rem;
-  margin-bottom: 1rem;
-}
-
-.timer-btn {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 0.6rem 1.4rem;
-  font-size: 0.9rem;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: all var(--transition-normal);
-  font-weight: 500;
-}
-
-.timer-btn:hover {
-  border-color: var(--neon-blue);
-  color: var(--neon-blue);
-  box-shadow: 0 0 10px var(--shadow-neon-blue);
-  transform: translateY(-2px);
-}
-
-.timer-btn.timer-stop {
-  border-color: rgba(247, 118, 142, 0.3);
-  color: var(--neon-pink);
-}
-
-.timer-btn.timer-stop:hover {
-  border-color: var(--neon-pink);
-  box-shadow: 0 0 10px rgba(247, 118, 142, 0.4);
-}
-
-.timer-btn.active-timer {
-  background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
-  border-color: transparent;
-  color: #fff;
-  box-shadow: 0 0 15px var(--shadow-neon-blue);
-}
-
-.timer-display {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 1rem 1.5rem;
-  width: fit-content;
-}
-
-.timer-label {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-
-.timer-countdown {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: var(--neon-cyan);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 2px;
+.preset-section {
+  display: none !important;
 }
 
 /* ============================================
-   프리셋 섹션 (Preset Section)
+   4번째 채널 - 가로 볼륨 슬라이더 (Horizontal Volume)
+   - 좌측: 🔊 아이콘
+   - 중앙: 슬라이더 (좌→우로 드래그, min=좌, max=우)
+   - 우측: 현재 값 표시
    ============================================ */
-.preset-section {
-  margin-bottom: 2.5rem;
-}
-
-.preset-buttons {
+.lofi-volume-wrap {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.8rem;
-  margin-bottom: 0.8rem;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.preset-btn {
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 0.7rem 1.6rem;
-  font-size: 0.9rem;
-  font-weight: 600;
+.lofi-volume-icon {
+  font-size: 1rem;
+  color: var(--neon-cyan);
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px var(--shadow-neon-cyan, rgba(125, 207, 255, 0.4)));
+}
+
+.lofi-volume-slider-container {
+  flex: 1 1 auto;
+  min-width: 80px;
+  max-width: 110px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 11px;
+  padding: 0 6px;
+  position: relative;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.4);
+}
+
+.lofi-volume-slider {
+  /* 가로 방향 (기본 orientation) */
+  -webkit-appearance: none;
+  appearance: none;
+
+  width: 100%;
+  height: 8px;
+  background: transparent;
   cursor: pointer;
-  transition: all var(--transition-normal);
+  outline: none;
+  margin: 0;
+  padding: 0;
 }
 
-.save-btn {
-  background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
-  color: #fff;
+/* WebKit (Chrome / Safari) 가로 트랙 — 좌→우 fill 그라데이션 */
+.lofi-volume-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
+  background:
+    linear-gradient(
+      to right,
+      var(--neon-cyan) 0%,
+      var(--neon-cyan) var(--volume-fill, 0%),
+      var(--border-color) var(--volume-fill, 0%),
+      var(--border-color) 100%
+    );
+  border-radius: 2px;
 }
 
-.save-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px var(--shadow-neon-blue);
+.lofi-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--neon-cyan);
+  border: 2px solid var(--neon-blue);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--shadow-neon-blue);
+  margin-top: -4px;
+  transition: transform 0.15s ease;
 }
 
-.load-btn {
-  background: var(--bg-secondary);
-  border: 1px solid var(--neon-purple);
-  color: var(--neon-purple);
+.lofi-volume-slider::-webkit-slider-thumb:hover {
+  background: var(--neon-blue);
+  box-shadow: 0 0 12px var(--neon-cyan);
+  transform: scale(1.2);
 }
 
-.load-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px var(--shadow-neon-purple);
+.lofi-volume-slider::-webkit-slider-thumb:active {
+  transform: scale(1.3);
 }
 
-.preset-status {
-  font-size: 0.85rem;
-  color: var(--neon-green);
-  min-height: 1.2rem;
-  transition: opacity var(--transition-normal);
+/* Firefox 가로 트랙 */
+.lofi-volume-slider::-moz-range-track {
+  width: 100%;
+  height: 4px;
+  background: var(--border-color);
+  border-radius: 2px;
+}
+
+.lofi-volume-slider::-moz-range-progress {
+  height: 4px;
+  background: var(--neon-cyan);
+  border-radius: 2px;
+}
+
+.lofi-volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--neon-cyan);
+  border: 2px solid var(--neon-blue);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--shadow-neon-blue);
+}
+
+.lofi-volume-value {
+  font-size: 0.8rem;
+  color: var(--neon-cyan);
+  font-weight: 700;
+  min-width: 28px;
+  text-align: center;
+  font-family: 'Courier New', monospace;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   4번째 채널 - 뮤직바 (Music Progress Bar)
+   - [시간 표시] progress bar 위쪽에 별도 행으로 배치
+   - [progress bar] 클릭 가능 (seek), 핸들(원) 표시
+   ============================================ */
+
+/* [시간 표시] progress bar 위쪽에 별도 행 */
+.lofi-progress-time {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.6rem;
+  padding: 0 0.3rem;
+  font-size: 0.75rem;
+  color: var(--neon-cyan);
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.lofi-progress-current,
+.lofi-progress-duration {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.lofi-progress-wrap {
+  margin-top: 0.3rem;
+  padding: 0.3rem 0.3rem 0.5rem 0.3rem;
+  cursor: pointer;
+  position: relative;
+}
+
+.lofi-progress-wrap:hover .lofi-progress-bar {
+  border-color: var(--neon-cyan);
+}
+
+.lofi-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  position: relative;
+  overflow: visible;
+  transition: border-color var(--transition-fast);
+}
+
+.lofi-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--neon-cyan), var(--neon-blue), var(--neon-purple));
+  border-radius: 4px;
+  transition: width 0.4s linear;
+  box-shadow: 0 0 8px var(--shadow-neon-blue);
+  pointer-events: none;
+}
+
+/* [핸들] 현재 재생 위치를 나타내는 작은 원 */
+.lofi-progress-handle {
+  position: absolute;
+  top: 50%;
+  left: 0%;
+  width: 14px;
+  height: 14px;
+  background: var(--neon-cyan);
+  border: 2px solid var(--neon-blue);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 10px var(--shadow-neon-blue);
+  pointer-events: none;
+  transition: left 0.4s linear, transform 0.15s ease;
+  z-index: 2;
+}
+
+.lofi-progress-wrap:hover .lofi-progress-handle {
+  transform: translate(-50%, -50%) scale(1.2);
+}
 }
 
 /* ============================================
@@ -662,28 +1245,77 @@ body::before {
 }
 
 /* ============================================
-   반응형 디자인 (Responsive)
+    반응형 디자인 (Responsive)
+    ============================================ */
+
+/* ============================================
+   Jamendo 추가 스타일
    ============================================ */
 
-/* --- 숨겨진 YouTube 플레이어 컨테이너 --- */
-/* 
- * YouTube는 1x1 픽셀이나 opacity: 0으로 완전히 숨겨진 iframe에서의 재생을 거부할 수 있습니다.
- * 따라서 최소 200x200 크기를 유지하면서 position으로 화면 밖으로 배치합니다.
+/*
+ * [현재 재생 중 정보 표시]
+ * 사용자가 어떤 곡을 듣고 있는지 실시간으로 보여주는 영역
  */
-.yt-players-hidden {
-  position: fixed;
-  top: -9999px;
-  left: -9999px;
-  width: 200px;
-  height: 200px;
-  pointer-events: none;
-  overflow: hidden;
+.now-playing {
+  margin-top: 1.5rem;
+  padding: 1rem 1.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--neon-blue);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 0 20px var(--shadow-neon-blue);
 }
 
-.yt-players-hidden > div {
-  width: 200px;
-  height: 200px;
+.now-playing-thumbnail {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
 }
+
+.now-playing-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.now-playing-label {
+  font-size: 0.75rem;
+  color: var(--neon-cyan);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.2rem;
+}
+
+.now-playing-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.now-playing-artist {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 비주얼라이저 섹션 부제목 */
+.visualizer-desc {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+/* ============================================
+   반응형 디자인 (Responsive Design)
+   ============================================ */
 
 @media (max-width: 768px) {
   .header {
@@ -697,25 +1329,435 @@ body::before {
     gap: 0.5rem;
   }
 
-  .sound-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .lofi-search-bar {
+    flex-direction: column;
+  }
+
+  .lofi-search-bar .login-btn {
+    width: 100%;
+  }
+
+  .lofi-card-album {
+    height: 160px;
   }
 
   .visualizer {
     height: 150px;
   }
-
-  .timer-buttons {
-    justify-content: center;
-  }
 }
 
 @media (max-width: 480px) {
-  .sound-grid {
-    grid-template-columns: 1fr;
+  .lofi-result-item {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .lofi-result-actions {
+    width: 100%;
+  }
+
+  .lofi-result-play-btn {
+    width: 100%;
+  }
+
+  .lofi-card-album {
+    height: 140px;
+  }
+
+  .lofi-card-controls {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .lofi-card-volume-section {
+    gap: 0.4rem;
+  }
+
+  .lofi-card-player-section {
+    justify-content: center;
+    gap: 0.7rem;
+  }
+
+  .lofi-play-btn {
+    width: 56px;
+    height: 56px;
+  }
+
+  .lofi-slider-wrap {
+    width: 100%;
   }
 
   .login-modal {
     padding: 2rem 1.5rem;
+  }
+}
+
+/* ============================================
+   숨겨진 YouTube IFrame 플레이어 (yt-player-3)
+   - 가사 영상을 백그라운드에서 재생
+   - 화면 밖 + 시각/마우스/포인터 완전 차단
+   - YouTube가 자체적으로 iframe에 inline style을 주입하는 케이스에 대비해
+     width/height/opacity/visibility도 !important 적용
+   ============================================ */
+#yt-player-3,
+#yt-player-3.yt-player-hidden,
+.yt-player-hidden {
+  position: fixed !important;
+  top: -10000px !important;
+  left: -10000px !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 1px !important;
+  min-height: 1px !important;
+  max-width: 1px !important;
+  max-height: 1px !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(100%) !important;
+  z-index: -99999 !important;
+  border: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* YouTube가 컨테이너 안에 직접 만드는 iframe — YouTube IFrame API가
+   inline style(width:100%, height:100%)을 부여하는 경우가 있으므로
+   컨테이너 자체를 1×1로 줄여 시각 노출 차단 */
+#yt-player-3 iframe,
+.yt-player-hidden iframe {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 1px !important;
+  min-height: 1px !important;
+  max-width: 1px !important;
+  max-height: 1px !important;
+  border: 0 !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* ============================================
+   검색 결과 "+ 추가" 버튼 (Playlist Add)
+   ============================================ */
+.lofi-result-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: stretch;
+}
+
+.lofi-result-add-btn {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid var(--neon-purple);
+  border-radius: var(--radius-sm);
+  color: var(--neon-purple);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.lofi-result-add-btn:hover {
+  background: rgba(187, 154, 247, 0.15);
+  transform: scale(1.05);
+  box-shadow: 0 0 15px var(--shadow-neon-purple);
+}
+
+.lofi-result-add-btn:active {
+  transform: scale(0.95);
+}
+
+.lofi-result-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   lofi-card 보조 액션 (플레이리스트 추가)
+   ============================================ */
+/* lofi-card의 "플레이리스트에 추가" 버튼 스타일 제거됨
+   (사용자 요청으로 lofi-card에서 해당 버튼 완전 삭제) */
+
+/* ============================================
+   플레이리스트 섹션 (Playlist)
+   ============================================ */
+.playlist-section {
+  margin-bottom: 2.5rem;
+}
+
+.playlist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.playlist-header .section-title {
+  margin-bottom: 0;
+}
+
+.playlist-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.playlist-count {
+  font-size: 0.85rem;
+  color: var(--neon-cyan);
+  font-weight: 600;
+  padding: 0.3rem 0.8rem;
+  background: rgba(125, 207, 255, 0.1);
+  border: 1px solid rgba(125, 207, 255, 0.3);
+  border-radius: var(--radius-sm);
+}
+
+.playlist-clear-btn {
+  padding: 0.4rem 0.9rem;
+  background: transparent;
+  border: 1px solid var(--neon-pink);
+  border-radius: var(--radius-sm);
+  color: var(--neon-pink);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.playlist-clear-btn:hover {
+  background: rgba(247, 118, 142, 0.15);
+  box-shadow: 0 0 15px rgba(247, 118, 142, 0.3);
+}
+
+.playlist-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.playlist-empty {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  padding: 2rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  margin: 0;
+}
+
+.playlist-item {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-normal);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.playlist-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(187, 154, 247, 0.08), transparent);
+  transition: left 0.6s ease;
+}
+
+.playlist-item:hover {
+  border-color: var(--neon-purple);
+  box-shadow:
+    0 0 15px var(--shadow-neon-purple),
+    inset 0 0 15px rgba(187, 154, 247, 0.05);
+  transform: translateY(-2px);
+}
+
+.playlist-item:hover::before {
+  left: 100%;
+}
+
+.playlist-index {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(187, 154, 247, 0.15);
+  border: 1px solid var(--neon-purple);
+  border-radius: 50%;
+  color: var(--neon-purple);
+  font-size: 0.8rem;
+  font-weight: 700;
+  position: relative;
+  z-index: 1;
+}
+
+.playlist-thumb {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  position: relative;
+  z-index: 1;
+}
+
+.playlist-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.playlist-thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  color: var(--neon-purple);
+  font-size: 1.5rem;
+}
+
+.playlist-info {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.playlist-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-bright);
+  margin: 0 0 0.2rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlist-item:hover .playlist-title {
+  color: var(--neon-purple);
+}
+
+.playlist-artist {
+  font-size: 0.8rem;
+  color: var(--neon-cyan);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlist-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 0.4rem;
+  position: relative;
+  z-index: 1;
+}
+
+.playlist-play-btn,
+.playlist-remove-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.playlist-play-btn {
+  background: linear-gradient(135deg, var(--neon-cyan), var(--neon-blue));
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(125, 207, 255, 0.4);
+}
+
+.playlist-play-btn:hover {
+  transform: scale(1.15);
+  box-shadow:
+    0 0 15px rgba(125, 207, 255, 0.6),
+    0 0 30px rgba(125, 207, 255, 0.3);
+}
+
+.playlist-remove-btn {
+  background: transparent;
+  border: 1px solid var(--neon-pink);
+  color: var(--neon-pink);
+}
+
+.playlist-remove-btn:hover {
+  background: rgba(247, 118, 142, 0.2);
+  transform: scale(1.15);
+  box-shadow: 0 0 10px rgba(247, 118, 142, 0.4);
+}
+
+/* 플레이리스트 스크롤바 */
+.playlist-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.playlist-list::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+  border-radius: 4px;
+}
+
+.playlist-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.playlist-list::-webkit-scrollbar-thumb:hover {
+  background: var(--neon-purple);
+}
+
+/* 플레이리스트 모바일 반응형 */
+@media (max-width: 480px) {
+  .playlist-item {
+    padding: 0.6rem;
+    gap: 0.6rem;
+  }
+
+  .playlist-thumb {
+    width: 48px;
+    height: 48px;
+  }
+
+  .playlist-index {
+    width: 24px;
+    height: 24px;
+    font-size: 0.7rem;
+  }
+
+  .playlist-actions {
+    flex-direction: column;
   }
 }
