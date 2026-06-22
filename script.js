@@ -99,6 +99,7 @@ const state = {
   volumes: [50, 50, 50, 100],
   audioContext: null,       // Web Audio API AudioContext
   vizAnimId: null,
+  vizEnabled: true,         // [신규] 비주얼라이저 활성화 플래그 (설정에서 끄면 false → 애니메이션 완전 정지)
   currentUser: null,
   currentTrack: null,
   playlist: [],             // [{id, videoId, title, artist, thumbnail, addedAt}]
@@ -178,11 +179,15 @@ async function registerUser(userId, password, phone = '', email = '') {
   if (password.length < 6) {
     return { success: false, message: '비밀번호는 6자 이상이어야 합니다.' };
   }
-  // [필수] 아이디/비밀번호 찾기 기능을 위해 전화번호 또는 이메일 중 하나는 필수
+  // [필수] 전화번호는 필수, 이메일은 보조
   const trimmedPhone = (phone || '').trim();
   const trimmedEmail = (email || '').trim();
-  if (!trimmedPhone && !trimmedEmail) {
-    return { success: false, message: '전화번호 또는 이메일 중 하나는 필수입니다.' };
+  if (!trimmedPhone) {
+    return { success: false, message: '전화번호는 필수 입력입니다.' };
+  }
+  // 전화번호 형식 검증 (010-0000-0000 또는 01000000000)
+  if (!/^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/.test(trimmedPhone)) {
+    return { success: false, message: '전화번호 형식이 올바르지 않습니다. (010-0000-0000)' };
   }
   if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
     return { success: false, message: '이메일 형식이 올바르지 않습니다.' };
@@ -190,6 +195,13 @@ async function registerUser(userId, password, phone = '', email = '') {
   const existingUser = localStorage.getItem(`soundscape_user_${userId}`);
   if (existingUser) {
     return { success: false, message: '이미 존재하는 아이디입니다.' };
+  }
+  // [신규] 다른 계정에서 이미 사용 중인 전화번호/이메일인지 검사
+  const dup = isContactTaken(trimmedPhone, trimmedEmail);
+  console.log('[회원가입] 중복 검사 — phone:', trimmedPhone, '/ email:', trimmedEmail, '→ dup:', dup);
+  if (dup.taken) {
+    const label = dup.field === 'phone' ? '전화번호' : '이메일';
+    return { success: false, message: `이미 다른 계정에서 사용 중인 ${label}입니다.` };
   }
   const passwordHash = await sha256(password);
   const userData = {
@@ -202,6 +214,30 @@ async function registerUser(userId, password, phone = '', email = '') {
   };
   localStorage.setItem(`soundscape_user_${userId}`, JSON.stringify(userData));
   return { success: true, message: '회원가입이 완료되었습니다!' };
+}
+
+/**
+ * 전화번호 입력 자동 포맷 (010-0000-0000)
+ * - 숫자만 입력해도 자동으로 - 삽입
+ * - 최대 13자리 (010-XXXX-XXXX)
+ * @param {HTMLInputElement} input
+ */
+function formatPhoneInput(input) {
+  if (!input) return;
+  // 숫자만 추출
+  let digits = input.value.replace(/[^0-9]/g, '');
+
+  // 최대 11자리 (01012345678)
+  if (digits.length > 11) digits = digits.slice(0, 11);
+
+  // 3-4-4 형식으로 - 삽입
+  let formatted = digits;
+  if (digits.length > 3 && digits.length <= 7) {
+    formatted = digits.slice(0, 3) + '-' + digits.slice(3);
+  } else if (digits.length > 7) {
+    formatted = digits.slice(0, 3) + '-' + digits.slice(3, 7) + '-' + digits.slice(7);
+  }
+  input.value = formatted;
 }
 
 // ============================================
@@ -237,6 +273,74 @@ function findUserByContact(contact) {
     }
   }
   return null;
+}
+
+/**
+ * 전화번호/이메일 중복 여부 검사
+ * - 회원가입 및 마이 정보 수정/등록 시 다른 사용자가 이미 사용 중인지 확인
+ * - 전화번호는 trim 비교, 이메일은 trim + toLowerCase 비교
+ * - excludeUserId에 해당하는 사용자는 검사에서 제외
+ *   (예: 마이 정보에서 본인의 기존 값과 같은 값을 입력한 경우 통과시키기 위함)
+ *
+ * @param {string} phone  - 검사할 전화번호 (빈 문자열이면 검사하지 않음)
+ * @param {string} email  - 검사할 이메일   (빈 문자열이면 검사하지 않음)
+ * @param {string|null} excludeUserId - 검사 제외할 사용자 아이디 (선택)
+ * @returns {{taken: boolean, field: ('phone'|'email'|null)}} 중복 여부와 어떤 필드가 중복인지
+ */
+function isContactTaken(phone, email, excludeUserId = null) {
+  const trimmedPhone = (phone || '').trim();
+  const trimmedEmail = (email || '').trim().toLowerCase();
+
+  // 둘 다 빈 값이면 검사할 필요 없음
+  if (!trimmedPhone && !trimmedEmail) {
+    return { taken: false, field: null };
+  }
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith('soundscape_user_')) continue;
+
+    // 검사 제외 대상 사용자 (자기 자신)
+    if (excludeUserId && key === `soundscape_user_${excludeUserId}`) continue;
+
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const userData = JSON.parse(raw);
+      if (!userData) continue;
+
+      const otherPhone = (userData.phone || '').trim();
+      const otherEmail = (userData.email || '').trim().toLowerCase();
+
+      // 전화번호 중복 (값이 제공된 경우에만)
+      if (trimmedPhone && otherPhone && otherPhone === trimmedPhone) {
+        return { taken: true, field: 'phone' };
+      }
+      // 이메일 중복 (값이 제공된 경우에만)
+      if (trimmedEmail && otherEmail && otherEmail === trimmedEmail) {
+        return { taken: true, field: 'email' };
+      }
+    } catch (e) {
+      // 손상된 데이터는 무시
+    }
+  }
+  return { taken: false, field: null };
+}
+
+/**
+ * 아이디 중복 여부 검사
+ * - 회원가입 시 사용자가 입력한 아이디가 이미 존재하는지 확인
+ * - excludeUserId에 해당하는 사용자는 검사에서 제외 (자기 자신 제외)
+ * @param {string} userId - 검사할 아이디
+ * @param {string|null} excludeUserId - 검사 제외할 사용자 아이디 (선택)
+ * @returns {boolean} 이미 사용 중이면 true
+ */
+function isIdTaken(userId, excludeUserId = null) {
+  if (!userId) return false;
+  const trimmed = String(userId).trim();
+  if (!trimmed) return false;
+  if (excludeUserId && trimmed === excludeUserId) return false;
+  return !!localStorage.getItem(`soundscape_user_${trimmed}`);
 }
 
 /**
@@ -373,12 +477,333 @@ function openMyInfoModal() {
     }
   }
 
+  // [신규] 민감 정보 마스킹 + 보기 상태로 초기화
+  myInfoSensitiveRevealed = false;
+  renderMyInfoSensitive();
+
   // 초기 상태: 정보 보기
   myInfoVerified = false;
+  myInfoSensitiveRevealed = false;
+  currentSensitiveField = null;
+  currentSensitiveAction = null;
   showMyInfoSection('view');
+  closeSensitiveForm();
 
   const modal = document.getElementById('myinfo-modal');
-  if (modal) modal.classList.remove('hidden');
+  console.log('[사운드스케이프] openMyInfoModal — modal 요소:', !!modal, 'currentUser:', state.currentUser);
+  if (modal) {
+    modal.classList.remove('hidden');
+    console.log('[사운드스케이프] ✓ myinfo 모달 표시됨');
+  } else {
+    console.error('[사운드스케이프] ⚠ myinfo-modal 요소를 찾을 수 없음');
+  }
+}
+
+/** [나의 정보] 민감 정보 공개 여부 플래그 */
+let myInfoSensitiveRevealed = false;
+
+/**
+ * 마스킹된 전화번호/이메일 또는 실제 값을 표시
+ */
+function renderMyInfoSensitive() {
+  const userData = getCurrentUserData();
+  const phoneEl = document.getElementById('myinfo-phone-masked');
+  const emailEl = document.getElementById('myinfo-email-masked');
+  if (!userData) return;
+
+  if (myInfoSensitiveRevealed) {
+    if (phoneEl) phoneEl.textContent = userData.phone || '(미등록)';
+    if (emailEl) emailEl.textContent = userData.email || '(미등록)';
+    if (phoneEl) phoneEl.classList.remove('info-masked');
+    if (emailEl) emailEl.classList.remove('info-masked');
+  } else {
+    if (phoneEl) {
+      phoneEl.textContent = userData.phone
+        ? maskPhone(userData.phone)
+        : '(미등록)';
+      phoneEl.classList.add('info-masked');
+    }
+    if (emailEl) {
+      emailEl.textContent = userData.email
+        ? maskEmail(userData.email)
+        : '(미등록)';
+      emailEl.classList.add('info-masked');
+    }
+  }
+}
+
+/** 전화번호 마스킹: 010-1234-5678 → 010-****-5678 */
+function maskPhone(phone) {
+  if (!phone) return '';
+  const digits = phone.replace(/[^0-9]/g, '');
+  if (digits.length < 8) return '•'.repeat(phone.length);
+  return phone.slice(0, 3) + '-****-' + phone.slice(-4);
+}
+
+/** 이메일 마스킹: test@example.com → te****@example.com */
+function maskEmail(email) {
+  if (!email || !email.includes('@')) return '••••••••';
+  const [local, domain] = email.split('@');
+  if (local.length <= 2) return local[0] + '****@' + domain;
+  return local.slice(0, 2) + '****@' + domain;
+}
+
+/** [신규] 민감 정보 인증/수정 폼 닫기 */
+function closeSensitiveForm() {
+  const form = document.getElementById('myinfo-sensitive-form');
+  if (form) form.classList.add('hidden');
+  const pwInput = document.getElementById('myinfo-sensitive-pw');
+  const newValueInput = document.getElementById('myinfo-sensitive-new-value');
+  const errEl = document.getElementById('myinfo-sensitive-error');
+  if (pwInput) pwInput.value = '';
+  if (newValueInput) newValueInput.value = '';
+  if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
+  // [TDZ 방어] let 변수가 아직 초기화되지 않은 시점(스크립트 로드 직후)에 호출되어도 안전
+  try { currentSensitiveField = null; } catch (e) { /* not yet defined — 무시 */ }
+  try { currentSensitiveAction = null; } catch (e) { /* not yet defined — 무시 */ }
+}
+
+/** [구버전 호환] hideRevealForm 별칭 → closeSensitiveForm */
+function hideRevealForm() { closeSensitiveForm(); }
+
+/** [신규] 현재 드롭다운에서 선택된 민감 정보 처리 상태 */
+let currentSensitiveField = null;  // 'phone' | 'email'
+let currentSensitiveAction = null;  // 'view' | 'edit' | 'register'
+
+/**
+ * [신규] '...' 드롭다운 토글
+ * - 다른 행의 드롭다운은 자동으로 닫힘
+ */
+function toggleInfoDropdown(field) {
+  // 다른 드롭다운 닫기
+  document.querySelectorAll('.info-dropdown').forEach(d => {
+    if (d.getAttribute('data-field') !== field) {
+      d.classList.add('hidden');
+    }
+  });
+  // dots 버튼 active 클래스도 정리
+  document.querySelectorAll('.info-dots-btn').forEach(b => {
+    if (b.getAttribute('data-field') !== field) {
+      b.classList.remove('active');
+    }
+  });
+
+  const dropdown = document.querySelector(`.info-dropdown[data-field="${field}"]`);
+  const dotsBtn = document.querySelector(`.info-dots-btn[data-field="${field}"]`);
+  if (!dropdown) return;
+
+  const willOpen = dropdown.classList.contains('hidden');
+  dropdown.classList.toggle('hidden');
+  if (dotsBtn) dotsBtn.classList.toggle('active', willOpen);
+
+  // 등록 상태에 따라 '수정'/'등록' 메뉴 동적 표시
+  if (willOpen) {
+    updateDropdownItems(field);
+  }
+}
+
+/**
+ * [신규] 드롭다운 메뉴 항목 등록 상태에 따라 동적 표시
+ * - 등록된 값: '수정' 표시, '등록' 숨김
+ * - 미등록: '등록' 표시, '수정' 숨김
+ * - '보기'는 항상 표시
+ */
+function updateDropdownItems(field) {
+  const userData = getCurrentUserData();
+  if (!userData) return;
+  const value = (userData[field] || '').trim();
+  const isRegistered = !!value;
+
+  const dropdown = document.querySelector(`.info-dropdown[data-field="${field}"]`);
+  if (!dropdown) return;
+
+  const editItem = dropdown.querySelector('[data-action="edit"]');
+  const registerItem = dropdown.querySelector('[data-action="register"]');
+
+  if (editItem) editItem.classList.toggle('hidden', !isRegistered);
+  if (registerItem) registerItem.classList.toggle('hidden', isRegistered);
+}
+
+/**
+ * [신규] 드롭다운 항목 클릭 핸들러
+ * - view: 비밀번호 확인 후 실제 값 표시
+ * - edit: 비밀번호 확인 후 새 값으로 수정
+ * - register: 비밀번호 확인 후 새 값 등록
+ */
+function onDropdownItemClick(field, action) {
+  // 드롭다운 닫기
+  const dropdown = document.querySelector(`.info-dropdown[data-field="${field}"]`);
+  if (dropdown) dropdown.classList.add('hidden');
+  const dotsBtn = document.querySelector(`.info-dots-btn[data-field="${field}"]`);
+  if (dotsBtn) dotsBtn.classList.remove('active');
+
+  // 상태 저장
+  currentSensitiveField = field;
+  currentSensitiveAction = action;
+
+  // 사용자 데이터 조회
+  const userData = getCurrentUserData();
+  if (!userData) return;
+
+  // 폼 표시
+  const form = document.getElementById('myinfo-sensitive-form');
+  const desc = document.getElementById('myinfo-sensitive-form-desc');
+  const extraField = document.getElementById('myinfo-sensitive-extra-field');
+  const newValueInput = document.getElementById('myinfo-sensitive-new-value');
+  const pwInput = document.getElementById('myinfo-sensitive-pw');
+  const confirmBtn = document.getElementById('myinfo-sensitive-confirm-btn');
+  const errEl = document.getElementById('myinfo-sensitive-error');
+
+  if (!form) return;
+  form.classList.remove('hidden');
+
+  // 입력 필드 초기화
+  if (pwInput) pwInput.value = '';
+  if (newValueInput) newValueInput.value = '';
+  if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
+
+  // 액션별 UI 설정
+  const fieldLabel = field === 'phone' ? '전화번호' : '이메일';
+
+  if (action === 'view') {
+    if (desc) desc.innerHTML = `등록된 <strong>${fieldLabel}</strong>를 확인하려면 현재 비밀번호를 입력해 주세요.`;
+    if (extraField) extraField.classList.add('hidden');
+    if (confirmBtn) confirmBtn.textContent = '확인';
+  } else if (action === 'edit') {
+    if (desc) desc.innerHTML = `새 <strong>${fieldLabel}</strong>를 입력하고 현재 비밀번호로 인증해 주세요.`;
+    if (extraField) {
+      extraField.classList.remove('hidden');
+      if (newValueInput) {
+        newValueInput.value = userData[field] || '';
+        newValueInput.type = (field === 'email') ? 'email' : 'tel';
+        newValueInput.placeholder = `새 ${fieldLabel}`;
+      }
+    }
+    if (confirmBtn) confirmBtn.textContent = '수정';
+  } else if (action === 'register') {
+    if (desc) desc.innerHTML = `<strong>${fieldLabel}</strong>를 등록하려면 값을 입력하고 현재 비밀번호로 인증해 주세요.`;
+    if (extraField) {
+      extraField.classList.remove('hidden');
+      if (newValueInput) {
+        newValueInput.value = '';
+        newValueInput.type = (field === 'email') ? 'email' : 'tel';
+        newValueInput.placeholder = `${fieldLabel} 등록`;
+      }
+    }
+    if (confirmBtn) confirmBtn.textContent = '등록';
+  }
+
+  // [수정] 액션별 포커스 대상 변경
+  // - view: 기존 비밀번호 확인이 우선 → 비밀번호 필드에 포커스
+  // - edit / register: 새 값(이메일/전화번호) 입력이 우선 → 새 값 입력 필드에 포커스
+  setTimeout(() => {
+    if (action === 'view') {
+      if (pwInput) pwInput.focus();
+    } else {
+      if (newValueInput) newValueInput.focus();
+    }
+  }, 50);
+}
+
+/**
+ * [신규] 민감 정보 액션 제출 (view/edit/register 공용)
+ * - 비밀번호 확인 후 액션 실행
+ */
+async function submitSensitiveAction() {
+  if (!currentSensitiveField || !currentSensitiveAction) return;
+
+  const pwInput = document.getElementById('myinfo-sensitive-pw');
+  const newValueInput = document.getElementById('myinfo-sensitive-new-value');
+  const errEl = document.getElementById('myinfo-sensitive-error');
+
+  if (!pwInput || !pwInput.value) {
+    showSensitiveError('현재 비밀번호를 입력해 주세요.');
+    return;
+  }
+
+  // 비밀번호 검증
+  const userData = getCurrentUserData();
+  if (!userData) {
+    showSensitiveError('사용자 정보를 찾을 수 없습니다.');
+    return;
+  }
+  const inputHash = await sha256(pwInput.value);
+  if (inputHash !== userData.passwordHash) {
+    showSensitiveError('비밀번호가 일치하지 않습니다.');
+    pwInput.value = '';
+    pwInput.focus();
+    return;
+  }
+
+  // [view] 비밀번호 검증만 성공 → 실제 값 표시
+  if (currentSensitiveAction === 'view') {
+    myInfoSensitiveRevealed = true;
+    renderMyInfoSensitive();
+    closeSensitiveForm();
+    return;
+  }
+
+  // [edit / register] 새 값 검증 + 저장
+  if (!newValueInput || !newValueInput.value) {
+    showSensitiveError('새 값을 입력해 주세요.');
+    return;
+  }
+  const newValue = newValueInput.value.trim();
+  if (!newValue) {
+    showSensitiveError('새 값을 입력해 주세요.');
+    return;
+  }
+
+  // 형식 검증
+  if (currentSensitiveField === 'email') {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newValue)) {
+      showSensitiveError('이메일 형식이 올바르지 않습니다.');
+      return;
+    }
+  } else if (currentSensitiveField === 'phone') {
+    if (!/^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/.test(newValue)) {
+      showSensitiveError('전화번호 형식이 올바르지 않습니다. (010-0000-0000)');
+      return;
+    }
+  }
+
+  // [신규] 다른 계정에서 이미 사용 중인 전화번호/이메일인지 검사
+  // (자기 자신은 제외되므로, 본인의 기존 값과 같은 값을 입력하는 것은 허용)
+  const dup = isContactTaken(
+    currentSensitiveField === 'phone' ? newValue : '',
+    currentSensitiveField === 'email' ? newValue : '',
+    state.currentUser
+  );
+  if (dup.taken) {
+    const label = dup.field === 'phone' ? '전화번호' : '이메일';
+    showSensitiveError(`다른 계정에서 이미 사용 중인 ${label}입니다. 다른 ${label}을(를) 입력해 주세요.`);
+    return;
+  }
+
+  // 저장
+  userData[currentSensitiveField] = newValue;
+  try {
+    localStorage.setItem(`soundscape_user_${state.currentUser}`, JSON.stringify(userData));
+  } catch (e) {
+    showSensitiveError('저장에 실패했습니다.');
+    return;
+  }
+
+  // 표시 갱신 (다시 마스킹)
+  myInfoSensitiveRevealed = false;
+  renderMyInfoSensitive();
+  closeSensitiveForm();
+
+  const fieldLabel = currentSensitiveField === 'phone' ? '전화번호' : '이메일';
+  const actionLabel = currentSensitiveAction === 'edit' ? '수정' : '등록';
+  showLofiError(`${fieldLabel}가 ${actionLabel}되었습니다.`);
+}
+
+function showSensitiveError(msg) {
+  const err = document.getElementById('myinfo-sensitive-error');
+  if (!err) return;
+  err.textContent = msg;
+  err.classList.remove('hidden');
 }
 
 /**
@@ -507,13 +932,12 @@ function closeMyInfoSuccess() {
     const el = document.getElementById(id);
     if (el) {
       el.value = '';
-      // 비밀번호 토글이 켜져 있었다면 다시 가려두기
+      // 비밀번호 토글이 켜져 있었다면 다시 가려두기 (innerHTML 이모지 swap 사용 안 함)
       if (el.type === 'text') {
         el.type = 'password';
         const toggle = document.querySelector(`.password-toggle[data-target="${id}"]`);
         if (toggle) {
           toggle.classList.remove('active');
-          toggle.innerHTML = '&#128065;'; // 👁
         }
       }
     }
@@ -529,20 +953,23 @@ function closeMyInfoSuccess() {
  * @param {string} targetId - 토글할 input의 id
  * @param {HTMLElement} btn - 클릭된 토글 버튼
  */
+/**
+ * 비밀번호 눈 모양 토글
+ * - innerHTML 이모지 swap 사용 안 함 (CSS 클래스 토글만 사용)
+ * - .active 클래스 추가 시 .eye-open 표시, 제거 시 .eye-closed 표시
+ */
 function togglePasswordVisibility(targetId, btn) {
   const input = document.getElementById(targetId);
   if (!input || !btn) return;
   if (input.type === 'password') {
-    // 표시
+    // [표시] type=text + active 클래스
     input.type = 'text';
     btn.classList.add('active');
-    btn.innerHTML = '&#128584;'; // 🙈 (가려진 눈)
     btn.setAttribute('aria-label', '비밀번호 숨기기');
   } else {
-    // 숨김
+    // [숨김] type=password + active 클래스 제거
     input.type = 'password';
     btn.classList.remove('active');
-    btn.innerHTML = '&#128065;'; // 👁 (보이는 눈)
     btn.setAttribute('aria-label', '비밀번호 표시');
   }
 }
@@ -584,16 +1011,33 @@ async function loginUser(userId, password) {
  * 자동 로그인 체크
  */
 function initAuth() {
+  console.log('[사운드스케이프] initAuth 시작 — 세션 확인 중');
   const sessionId = localStorage.getItem('soundscape_session');
+  console.log('[사운드스케이프] localStorage 세션:', sessionId);
+
   if (sessionId) {
     const userDataRaw = localStorage.getItem(`soundscape_user_${sessionId}`);
+    console.log('[사운드스케이프] 유저 데이터 존재:', !!userDataRaw);
+
     if (userDataRaw) {
-      state.currentUser = sessionId;
-      completeLogin(sessionId, false);
+      try {
+        // [신규] 유저 데이터 유효성 확인
+        JSON.parse(userDataRaw);
+        state.currentUser = sessionId;
+        // [핵심] 새로고침 시 자동 로그인 — 애니메이션 없이 즉시 UI 전환
+        completeLogin(sessionId, false);
+        console.log('[사운드스케이프] ✓ 자동 로그인 성공:', sessionId);
+      } catch (e) {
+        console.error('[사운드스케이프] 유저 데이터 손상, 세션 제거:', e);
+        localStorage.removeItem('soundscape_session');
+        localStorage.removeItem(`soundscape_user_${sessionId}`);
+      }
       return;
     }
+    // 세션은 있지만 유저 데이터가 없음 → 세션 정리
     localStorage.removeItem('soundscape_session');
   }
+  console.log('[사운드스케이프] 저장된 세션 없음 — 로그인 화면 표시');
 }
 
 /**
@@ -601,23 +1045,44 @@ function initAuth() {
  */
 function completeLogin(userId, animate = true) {
   state.currentUser = userId;
-  welcomeMsg.textContent = `환영합니다, ${userId}님!`;
+  if (welcomeMsg) welcomeMsg.textContent = `환영합니다, ${userId}님!`;
 
   // [핵심] 로그인 시 localStorage에서 플레이리스트 복원
-  // - initPlaylist()는 init() 시점에 user가 없을 수 있어 호출되지만,
-  //   로그인/재로그인 시점에는 여기서 명시적으로 다시 호출해야 함
   loadPlaylist();
   renderPlaylist();
+
+  // [안전 체크] DOM 요소가 존재하는지 확인
+  if (!authOverlay) {
+    console.error('[사운드스케이프] authOverlay 요소를 찾을 수 없음');
+    return;
+  }
+  if (!appEl) {
+    console.error('[사운드스케이프] appEl 요소를 찾을 수 없음');
+    return;
+  }
+
+  console.log('[사운드스케이프] completeLogin — animate:', animate, 'userId:', userId);
 
   if (animate) {
     authOverlay.classList.add('fade-out');
     authOverlay.addEventListener('animationend', () => {
       authOverlay.classList.add('hidden');
       appEl.classList.remove('hidden');
+      // [app-ready] CSS opacity:0 → 1 부드러운 전환
+      requestAnimationFrame(() => {
+        appEl.classList.add('app-ready');
+      });
+      console.log('[사운드스케이프] ✓ 로그인 애니메이션 완료 — 메인화면 표시');
     }, { once: true });
   } else {
+    // [자동 로그인] 즉시 UI 전환 — app-ready로 부드럽게 페이드인
     authOverlay.classList.add('hidden');
     appEl.classList.remove('hidden');
+    // requestAnimationFrame으로 다음 프레임에 app-ready 적용 → transition 트리거
+    requestAnimationFrame(() => {
+      appEl.classList.add('app-ready');
+      console.log('[사운드스케이프] ✓ 자동 로그인 — 메인화면 페이드인 시작');
+    });
   }
 }
 
@@ -686,6 +1151,19 @@ registerForm.addEventListener('submit', async (e) => {
     return;
   }
 
+  // [방어 코드] 폼 제출 시점에도 한 번 더 중복 검사 — registerUser 내부 검사 우회 시 안전망
+  const phoneTrimmed = (phone || '').trim();
+  const emailTrimmed = (email || '').trim();
+  if (phoneTrimmed || emailTrimmed) {
+    const preDup = isContactTaken(phoneTrimmed, emailTrimmed);
+    console.log('[회원가입 핸들러] 사전 중복 검사 →', preDup);
+    if (preDup.taken) {
+      const lbl = preDup.field === 'phone' ? '전화번호' : '이메일';
+      showAuthError(registerError, `이미 다른 계정에서 사용 중인 ${lbl}입니다.`);
+      return;
+    }
+  }
+
   const result = await registerUser(userId, password, phone, email);
   if (result.success) {
     showAuthError(registerError, result.message);
@@ -695,11 +1173,139 @@ registerForm.addEventListener('submit', async (e) => {
       showLoginBtn.classList.add('hidden');
       showRegisterBtn.classList.remove('hidden');
       registerForm.reset();
+      // [신규] 확인 결과 메시지도 함께 초기화
+      setCheckResult('check-id-result', '', '');
+      setCheckResult('check-phone-result', '', '');
+      setCheckResult('check-email-result', '', '');
     }, 1500);
   } else {
     showAuthError(registerError, result.message);
   }
 });
+
+
+/* ============================================
+   [신규] 회원가입 — 아이디/전화번호/이메일 '확인' 버튼
+   - 각 필드별 중복 여부를 미리 검사하여 메시지 표시
+   - 회원가입 시도 시에도 한 번 더 검사 (이중 안전망)
+   - 입력 값이 바뀌면 이전 결과 메시지 초기화 (재확인 유도)
+   ============================================ */
+
+/**
+ * 확인 결과 메시지 표시 헬퍼
+ * @param {string} resultId  - 결과 표시 영역 id (예: 'check-id-result')
+ * @param {string} message   - 표시할 메시지 (빈 문자열이면 초기화)
+ * @param {'success'|'error'|'info'|''} status - 메시지 상태
+ */
+function setCheckResult(resultId, message, status = '') {
+  const el = document.getElementById(resultId);
+  if (!el) return;
+  el.textContent = message || '';
+  el.classList.remove('check-result-success', 'check-result-error', 'check-result-info');
+  if (message && status) {
+    el.classList.add(`check-result-${status}`);
+  }
+}
+
+/**
+ * [아이디 확인] 핸들러
+ */
+function onCheckId() {
+  const input = document.getElementById('register-id');
+  if (!input) return;
+  const id = input.value.trim();
+  if (!id) {
+    setCheckResult('check-id-result', '아이디를 입력해 주세요.', 'error');
+    input.focus();
+    return;
+  }
+  if (id.length < 4) {
+    setCheckResult('check-id-result', '아이디는 4자 이상이어야 합니다.', 'error');
+    return;
+  }
+  if (isIdTaken(id)) {
+    setCheckResult('check-id-result', '✗ 이미 사용 중인 아이디입니다.', 'error');
+  } else {
+    setCheckResult('check-id-result', '✓ 사용 가능한 아이디입니다.', 'success');
+  }
+}
+
+/**
+ * [전화번호 확인] 핸들러
+ */
+function onCheckPhone() {
+  const input = document.getElementById('register-phone');
+  if (!input) return;
+  const phone = input.value.trim();
+  if (!phone) {
+    setCheckResult('check-phone-result', '전화번호를 입력해 주세요.', 'error');
+    input.focus();
+    return;
+  }
+  if (!/^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/.test(phone)) {
+    setCheckResult('check-phone-result', '전화번호 형식이 올바르지 않습니다. (010-0000-0000)', 'error');
+    return;
+  }
+  const dup = isContactTaken(phone, '');
+  if (dup.taken) {
+    setCheckResult('check-phone-result', '✗ 이미 다른 계정에서 사용 중인 전화번호입니다.', 'error');
+  } else {
+    setCheckResult('check-phone-result', '✓ 사용 가능한 전화번호입니다.', 'success');
+  }
+}
+
+/**
+ * [이메일 확인] 핸들러 (선택 필드 — 빈 값이면 검사 안 함)
+ */
+function onCheckEmail() {
+  const input = document.getElementById('register-email');
+  if (!input) return;
+  const email = input.value.trim();
+  if (!email) {
+    setCheckResult('check-email-result', '이메일은 선택 항목입니다. 입력하지 않으려면 그대로 두세요.', 'info');
+    return;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    setCheckResult('check-email-result', '이메일 형식이 올바르지 않습니다.', 'error');
+    return;
+  }
+  const dup = isContactTaken('', email);
+  if (dup.taken) {
+    setCheckResult('check-email-result', '✗ 이미 다른 계정에서 사용 중인 이메일입니다.', 'error');
+  } else {
+    setCheckResult('check-email-result', '✓ 사용 가능한 이메일입니다.', 'success');
+  }
+}
+
+// 확인 버튼 클릭 이벤트
+document.getElementById('check-id-btn')?.addEventListener('click', onCheckId);
+document.getElementById('check-phone-btn')?.addEventListener('click', onCheckPhone);
+document.getElementById('check-email-btn')?.addEventListener('click', onCheckEmail);
+
+// 입력 값이 바뀌면 이전 결과 메시지 초기화 (재확인 유도)
+['register-id', 'register-phone', 'register-email'].forEach(inputId => {
+  const resultId = inputId.replace('register-', 'check-') + '-result';
+  const input = document.getElementById(inputId);
+  if (input) {
+    input.addEventListener('input', () => setCheckResult(resultId, '', ''));
+  }
+});
+
+// Enter 키로도 확인 버튼 동작 (input에서 Enter를 누르면 해당 필드의 확인 버튼 클릭)
+['register-id', 'register-phone', 'register-email'].forEach(inputId => {
+  const input = document.getElementById(inputId);
+  if (input) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (inputId === 'register-id') onCheckId();
+        else if (inputId === 'register-phone') onCheckPhone();
+        else if (inputId === 'register-email') onCheckEmail();
+      }
+    });
+  }
+});
+
 
 /**
  * 로그아웃 처리
@@ -1629,6 +2235,60 @@ function setLofiVolume(volume) {
       console.warn('[사운드스케이프] setVolume 실패:', e);
     }
   }
+
+  // [음소거 상태 동기화] 볼륨이 0이 아니면 음소거 해제, 0이면 음소거 상태로 표시
+  syncMuteUI(clampedVolume);
+}
+
+/** [음소거] 음소거 상태 플래그 */
+let isVolumeMuted = false;
+/** [음소거] 음소거 해제 시 복원할 이전 볼륨 값 */
+let volumeBeforeMute = 100;
+
+/**
+ * 볼륨 음소거 토글
+ * - 음소거: 현재 볼륨 저장 → 0으로 내림 + .muted 클래스 추가
+ * - 해제: 저장된 볼륨 복원 + .muted 클래스 제거
+ * - 슬라이더 input 이벤트를 dispatch하여 setLofiVolume → syncMuteUI까지 자동 연동
+ */
+function toggleMute() {
+  const slider = lofiVolumeSlider;
+  if (!slider) return;
+
+  if (isVolumeMuted) {
+    // [음소거 해제] 이전 볼륨으로 복원
+    const restore = volumeBeforeMute > 0 ? volumeBeforeMute : 100;
+    slider.value = restore;
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+  } else {
+    // [음소거] 현재 값 저장 후 0으로
+    const current = parseInt(slider.value, 10) || 0;
+    volumeBeforeMute = current > 0 ? current : 100;
+    slider.value = 0;
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+/**
+ * 슬라이더 값에 따라 음소거 버튼 UI 동기화
+ * - setLofiVolume에서 호출되어 항상 일관성 유지
+ * - 직접 슬라이더 조작 시에도 음소거 상태가 자동 갱신됨
+ */
+function syncMuteUI(volume) {
+  const btn = document.getElementById('volume-mute-btn');
+  if (!btn) return;
+  const shouldMute = (volume === 0);
+  if (shouldMute && !isVolumeMuted) {
+    isVolumeMuted = true;
+    btn.classList.add('muted');
+    btn.setAttribute('title', '음소거 해제');
+    btn.setAttribute('aria-label', '음소거 해제');
+  } else if (!shouldMute && isVolumeMuted) {
+    isVolumeMuted = false;
+    btn.classList.remove('muted');
+    btn.setAttribute('title', '음소거');
+    btn.setAttribute('aria-label', '음소거');
+  }
 }
 
 
@@ -1847,8 +2507,24 @@ function initVisualizerBars() {
  * [활성화 보장]
  * - state.isPlaying === true → 큰 파동 (10~200px)
  * - state.isPlaying === false → 작은 잔잔한 파동 (3~12px, 비주얼라이저가 살아있음을 시각화)
+ * - state.vizEnabled === false → 즉시 정지 (requestAnimationFrame 중단, 막대 정적)
  */
 function renderVisualizer() {
+  // [핵심] 비주얼라이저가 설정에서 꺼진 경우 → 즉시 정지
+  if (state.vizEnabled === false) {
+    state.vizAnimId = null;
+    // 막대를 정적 상태로 리셋
+    const bars = visualizerEl.querySelectorAll('.viz-bar');
+    if (bars) {
+      bars.forEach(bar => {
+        bar.style.height = '3px';
+        bar.style.boxShadow = 'none';
+        bar.style.filter = 'brightness(1)';
+      });
+    }
+    return; // requestAnimationFrame 재호출 안 함 → 완전 정지
+  }
+
   const bars = visualizerEl.querySelectorAll('.viz-bar');
   if (!bars || bars.length === 0) {
     // 막대가 아직 초기화되지 않음 — 다음 프레임에 재시도
@@ -2090,7 +2766,7 @@ function addCurrentTrackToPlaylist() {
   }
 
   // 3순위: lofi-card DOM 텍스트에서 추출
-  if (!trackName && lofiCardTitle && lofiCardTitle.textContent && lofiCardTitle.textContent !== '검색된 곡') {
+  if (!trackName && lofiCardTitle && lofiCardTitle.textContent && lofiCardTitle.textContent !== '') {
     trackName = lofiCardTitle.textContent;
     if (lofiCardArtist && lofiCardArtist.textContent) {
       artistName = lofiCardArtist.textContent.split(' - ')[0].trim() || 'Unknown';
@@ -2223,6 +2899,7 @@ function renderPlaylist() {
       ? `<img src="${escapeHtml(item.thumbnail)}" alt="${escapeHtml(item.title)}" onerror="this.src='https://via.placeholder.com/56x56/1a1b26/7dcfff?text=♪'" />`
       : `<div class="playlist-thumb-placeholder">&#9835;</div>`;
 
+    li.setAttribute('data-item-id', item.id);
     li.innerHTML = `
       <div class="playlist-index">${index + 1}</div>
       <div class="playlist-thumb">${thumb}</div>
@@ -2240,9 +2917,10 @@ function renderPlaylist() {
       e.stopPropagation();
       playPlaylistItem(item.id);
     });
+    // [변경] X 버튼 → 인라인 삭제 확인 UI
     li.querySelector('.playlist-remove-btn').addEventListener('click', (e) => {
       e.stopPropagation();
-      removeFromPlaylist(item.id);
+      showPlaylistDeleteConfirm(item.id);
     });
     li.addEventListener('click', () => playPlaylistItem(item.id));
 
@@ -2284,6 +2962,16 @@ lofiVolumeSlider.addEventListener('input', (e) => {
   const vol = parseInt(e.target.value);
   setLofiVolume(vol);
 });
+
+/**
+ * 볼륨 음소거 토글 버튼
+ * - 클릭 시 toggleMute() 호출
+ * - setLofiVolume → syncMuteUI로 인해 슬라이더 직접 조작 시에도 음소거 상태 자동 동기화
+ */
+const volumeMuteBtn = document.getElementById('volume-mute-btn');
+if (volumeMuteBtn) {
+  volumeMuteBtn.addEventListener('click', toggleMute);
+}
 
 /**
  * lofi-card의 "이전 곡" 버튼 이벤트
@@ -2362,22 +3050,35 @@ window.addEventListener('keydown', (e) => {
  * 앱 시작 진입점
  */
 function init() {
-  initVisualizerBars();
-  initAuth();
-  renderVisualizer();
-  initPlaylist();
-  setupProgressBarInteraction();  // progress bar 클릭/드래그 seek
-  initCardUIVisibility();         // [신규] UI 자동 숨김/노출 (hover/click)
+  try {
+    initVisualizerBars();
+    initAuth();
+    renderVisualizer();
+    initPlaylist();
+    setupProgressBarInteraction();  // progress bar 클릭/드래그 seek
+    initCardUIVisibility();         // [신규] UI 자동 숨김/노출 (hover/click)
 
-  // [초기 볼륨 fill 동기화] 슬라이더의 --volume-fill CSS 변수를 초기값으로 세팅
-  // (트랙의 그라데이션 fill이 즉시 보이도록)
-  if (lofiVolumeSlider && lofiVolumeValue) {
-    lofiVolumeSlider.style.setProperty('--volume-fill', `${lofiVolumeSlider.value}%`);
-    lofiVolumeValue.textContent = lofiVolumeSlider.value;
+    // [초기 볼륨 fill 동기화] 슬라이더의 --volume-fill CSS 변수를 초기값으로 세팅
+    // (트랙의 그라데이션 fill이 즉시 보이도록)
+    if (lofiVolumeSlider && lofiVolumeValue) {
+      lofiVolumeSlider.style.setProperty('--volume-fill', `${lofiVolumeSlider.value}%`);
+      lofiVolumeValue.textContent = lofiVolumeSlider.value;
+    }
+
+    // [0초 로딩] YouTube IFrame Player 사전 생성
+    tryPreCreateYouTubePlayer();
+  } catch (e) {
+    console.error('[사운드스케이프] 초기화 중 오류:', e);
+  } finally {
+    // [안전망] 어떤 오류가 발생해도 메인화면이 영원히 투명한 상태로 남지 않도록
+    // 자동 로그인 모드(세션 있음)인 경우 app-ready 클래스를 강제 추가
+    if (document.documentElement.classList.contains('auto-logged-in')) {
+      requestAnimationFrame(() => {
+        if (appEl) appEl.classList.add('app-ready');
+        console.log('[사운드스케이프] ✓ init() 완료 — 메인화면 페이드인 보장');
+      });
+    }
   }
-
-  // [0초 로딩] YouTube IFrame Player 사전 생성
-  tryPreCreateYouTubePlayer();
 }
 
 // ============================================
@@ -2517,7 +3218,13 @@ function initCardUIVisibility() {
   // 헤더: 나의 정보 버튼
   const myinfoBtn = document.getElementById('myinfo-btn');
   if (myinfoBtn) {
-    myinfoBtn.addEventListener('click', openMyInfoModal);
+    myinfoBtn.addEventListener('click', () => {
+      console.log('[사운드스케이프] 👤 나의 정보 버튼 클릭됨');
+      openMyInfoModal();
+    });
+    console.log('[사운드스케이프] ✓ myinfo-btn 이벤트 바인딩 완료');
+  } else {
+    console.warn('[사운드스케이프] ⚠ myinfo-btn 요소를 찾을 수 없음');
   }
 
   // 나의 정보 모달: 닫기 (X / 영역 외부)
@@ -2601,8 +3308,288 @@ function initCardUIVisibility() {
     }
   });
 
+  // [신규] 민감 정보 '...' 드롭다운 버튼 — 모든 .info-dots-btn 요소에 바인딩
+  document.querySelectorAll('.info-dots-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const field = btn.getAttribute('data-field');
+      toggleInfoDropdown(field);
+    });
+  });
+
+  // [신규] 드롭다운 메뉴 항목 — 모든 .info-dropdown-item에 바인딩
+  document.querySelectorAll('.info-dropdown-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dropdown = item.closest('.info-dropdown');
+      const field = dropdown ? dropdown.getAttribute('data-field') : null;
+      const action = item.getAttribute('data-action');
+      if (field && action) onDropdownItemClick(field, action);
+    });
+  });
+
+  // [신규] 통합 폼 — 확인/취소 버튼
+  const sensitiveConfirmBtn = document.getElementById('myinfo-sensitive-confirm-btn');
+  if (sensitiveConfirmBtn) {
+    sensitiveConfirmBtn.addEventListener('click', submitSensitiveAction);
+  }
+  const sensitivePwInput = document.getElementById('myinfo-sensitive-pw');
+  if (sensitivePwInput) {
+    sensitivePwInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitSensitiveAction();
+      }
+    });
+  }
+  const sensitiveCancelBtn = document.getElementById('myinfo-sensitive-cancel-btn');
+  if (sensitiveCancelBtn) {
+    sensitiveCancelBtn.addEventListener('click', closeSensitiveForm);
+  }
+
+  // [신규] 다른 곳 클릭 시 드롭다운 닫기
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.info-action-wrap')) {
+      document.querySelectorAll('.info-dropdown').forEach(d => d.classList.add('hidden'));
+      document.querySelectorAll('.info-dots-btn').forEach(b => b.classList.remove('active'));
+    }
+  });
+
+  // [신규] 회원가입 폼: 전화번호 자동 포맷
+  const registerPhoneInput = document.getElementById('register-phone');
+  if (registerPhoneInput) {
+    registerPhoneInput.addEventListener('input', () => formatPhoneInput(registerPhoneInput));
+  }
+
+  // [신규] 설정 FAB + 패널
+  initSettingsPanel();
+
   console.log('[사운드스케이프] 아이디/비밀번호 찾기 + 나의 정보 모달 이벤트 초기화 완료');
 })();
+
+
+// ============================================
+// [18] 설정 패널 (Settings FAB + Panel)
+// ============================================
+
+/** 비주얼라이저 색상 프리셋 (CSS 변수 오버라이드) */
+const VIZ_COLOR_PRESETS = {
+  cyan:   { 1: '#7dcfff', 2: '#7aa2f7', 3: '#bb9af7' },  // 기본 (시안 → 블루 → 퍼플)
+  purple: { 1: '#bb9af7', 2: '#f7768e', 3: '#9ece6a' },  // 퍼플 → 핑크 → 그린
+  pink:   { 1: '#f7768e', 2: '#ff9e64', 3: '#bb9af7' },  // 핑크 → 오렌지 → 퍼플
+  green:  { 1: '#9ece6a', 2: '#7dcfff', 3: '#7aa2f7' }   // 그린 → 시안 → 블루
+};
+
+/**
+ * 비주얼라이저 색상 변경 (CSS 변수 오버라이드)
+ * @param {'cyan'|'purple'|'pink'|'green'} colorName
+ */
+function setVisualizerColor(colorName) {
+  const preset = VIZ_COLOR_PRESETS[colorName];
+  if (!preset) return;
+  const root = document.documentElement;
+  root.style.setProperty('--viz-color-1', preset[1]);
+  root.style.setProperty('--viz-color-2', preset[2]);
+  root.style.setProperty('--viz-color-3', preset[3]);
+
+  // 로컬스토리지에 저장
+  try {
+    localStorage.setItem('soundscape_viz_color', colorName);
+  } catch (e) { /* ignore */ }
+
+  // 스왓치 active 갱신
+  document.querySelectorAll('.color-swatch').forEach(sw => {
+    sw.classList.toggle('active', sw.getAttribute('data-color') === colorName);
+  });
+  console.log(`[사운드스케이프] 비주얼라이저 색상 → ${colorName}`);
+}
+
+/**
+ * 비주얼라이저 표시/숨김 — 실제 애니메이션을 켜거나 끔
+ * - 끄기: requestAnimationFrame 취소 + 막대 정적(3px)으로 리셋
+ * - 켜기: ensureVisualizerRunning()으로 애니메이션 루프 재시작
+ * @param {boolean} enabled
+ */
+function setVisualizerEnabled(enabled) {
+  state.vizEnabled = enabled;
+  const viz = document.getElementById('visualizer');
+  if (viz) {
+    viz.classList.toggle('disabled', !enabled);
+  }
+
+  if (enabled) {
+    // [켜기] 애니메이션 루프 재시작
+    ensureVisualizerRunning();
+  } else {
+    // [끄기] 애니메이션 루프 즉시 취소
+    if (state.vizAnimId !== null && state.vizAnimId !== undefined) {
+      cancelAnimationFrame(state.vizAnimId);
+      state.vizAnimId = null;
+    }
+    // 막대를 정적 상태로 리셋 (다음 renderVisualizer 호출까지 안전망)
+    const bars = document.querySelectorAll('.viz-bar');
+    if (bars) {
+      bars.forEach(bar => {
+        bar.style.height = '3px';
+        bar.style.boxShadow = 'none';
+        bar.style.filter = 'brightness(1)';
+      });
+    }
+  }
+
+  try {
+    localStorage.setItem('soundscape_viz_enabled', enabled ? '1' : '0');
+  } catch (e) { /* ignore */ }
+  console.log(`[사운드스케이프] 비주얼라이저 ${enabled ? '켜짐' : '꺼짐'} (애니메이션 ${enabled ? '시작' : '정지'})`);
+}
+
+/** 저장된 비주얼라이저 설정 복원 */
+function restoreVisualizerSettings() {
+  try {
+    const color = localStorage.getItem('soundscape_viz_color') || 'cyan';
+    setVisualizerColor(color);
+
+    const enabled = localStorage.getItem('soundscape_viz_enabled');
+    if (enabled === '0') {
+      setVisualizerEnabled(false);
+      const toggle = document.getElementById('viz-toggle');
+      if (toggle) toggle.checked = false;
+    }
+  } catch (e) { /* ignore */ }
+}
+
+/**
+ * 설정 패널 이벤트 초기화
+ */
+function initSettingsPanel() {
+  const fab = document.getElementById('settings-fab');
+  const panel = document.getElementById('settings-panel');
+  const closeBtn = document.getElementById('settings-close-btn');
+  const vizToggle = document.getElementById('viz-toggle');
+
+  console.log('[사운드스케이프] initSettingsPanel — fab:', !!fab, 'panel:', !!panel);
+
+  if (fab && panel) {
+    fab.addEventListener('click', () => {
+      console.log('[사운드스케이프] ⚙ 설정 FAB 클릭됨 — panel.hidden:', panel.classList.contains('hidden'));
+      panel.classList.toggle('hidden');
+      const isOpen = !panel.classList.contains('hidden');
+      // [핵심] 패널이 열려있을 때 lo-fi card에 ui-pinned + ui-visible 추가
+      // → 마우스가 lo-fi card 밖으로 이동해도 FAB이 숨겨지지 않음
+      // → 패널을 닫기 위해 FAB을 다시 호버할 필요 없음
+      if (lofiCard) {
+        if (isOpen) {
+          lofiCard.classList.add('ui-pinned');
+          lofiCard.classList.add('ui-visible');
+          // 호버 타이머가 남아있다면 정리 (닫기 전에 다시 안 보이게 되는 것 방지)
+          if (cardUIHideTimer) {
+            clearTimeout(cardUIHideTimer);
+            cardUIHideTimer = null;
+          }
+        } else {
+          lofiCard.classList.remove('ui-pinned');
+          // ui-visible은 마우스 호버 상태에 따라 유지/제거됨 (scheduleHideCardUI가 처리)
+        }
+      }
+      console.log('[사운드스케이프] ⚙ 토글 후 — panel.hidden:', panel.classList.contains('hidden'), 'ui-pinned:', lofiCard && lofiCard.classList.contains('ui-pinned'));
+    });
+    console.log('[사운드스케이프] ✓ settings-fab 이벤트 바인딩 완료');
+  } else {
+    console.warn('[사운드스케이프] ⚠ settings-fab 또는 settings-panel 요소를 찾을 수 없음');
+  }
+  if (closeBtn && panel) {
+    closeBtn.addEventListener('click', () => {
+      panel.classList.add('hidden');
+      // [핵심] 패널 닫기 버튼 클릭 시 ui-pinned 제거 → 호버 시에만 표시
+      if (lofiCard) lofiCard.classList.remove('ui-pinned');
+    });
+  }
+
+  // 비주얼라이저 on/off 토글
+  if (vizToggle) {
+    vizToggle.addEventListener('change', (e) => {
+      setVisualizerEnabled(e.target.checked);
+    });
+  }
+
+  // 색상 스왓치 클릭
+  document.querySelectorAll('.color-swatch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      const color = sw.getAttribute('data-color');
+      setVisualizerColor(color);
+    });
+  });
+
+  // ESC로 설정 패널 닫기
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && panel && !panel.classList.contains('hidden')) {
+      panel.classList.add('hidden');
+    }
+  });
+
+  // 초기 설정 복원
+  restoreVisualizerSettings();
+}
+
+
+// ============================================
+// [19] 플레이리스트 인라인 삭제 확인
+// ============================================
+
+/** 현재 삭제 확인 중인 playlist item id */
+let pendingDeleteItemId = null;
+
+/**
+ * 플레이리스트 항목의 X 버튼 클릭 → 인라인 확인 UI 표시
+ * @param {string} itemId
+ */
+function showPlaylistDeleteConfirm(itemId) {
+  pendingDeleteItemId = itemId;
+
+  // 이미 다른 항목이 확인 중이면 그것을 먼저 되돌림
+  document.querySelectorAll('.playlist-confirm').forEach(el => el.remove());
+
+  const item = document.querySelector(`.playlist-item[data-item-id="${itemId}"]`);
+  if (!item) return;
+
+  // 기존 actions 영역을 숨기고 confirm UI로 교체
+  const actions = item.querySelector('.playlist-actions');
+  if (actions) actions.style.display = 'none';
+
+  const confirmEl = document.createElement('div');
+  confirmEl.className = 'playlist-confirm';
+  confirmEl.innerHTML = `
+    <p class="playlist-confirm-text">삭제 하시겠습니까?</p>
+    <div class="playlist-confirm-buttons">
+      <button class="playlist-confirm-ok" data-action="confirm">확인</button>
+      <button class="playlist-confirm-cancel" data-action="cancel">취소</button>
+    </div>
+  `;
+  item.appendChild(confirmEl);
+
+  // 확인 / 취소 버튼 이벤트
+  confirmEl.querySelector('.playlist-confirm-ok').addEventListener('click', () => {
+    if (pendingDeleteItemId) {
+      removeFromPlaylist(pendingDeleteItemId);
+      pendingDeleteItemId = null;
+    }
+  });
+  confirmEl.querySelector('.playlist-confirm-cancel').addEventListener('click', () => {
+    cancelPlaylistDelete();
+  });
+}
+
+/**
+ * 플레이리스트 삭제 확인 취소
+ */
+function cancelPlaylistDelete() {
+  pendingDeleteItemId = null;
+  document.querySelectorAll('.playlist-confirm').forEach(el => el.remove());
+  // 모든 actions 다시 보이기
+  document.querySelectorAll('.playlist-actions').forEach(el => {
+    el.style.display = '';
+  });
+}
 
 /**
  * YouTube Player 사전 생성 (race condition 안전판)

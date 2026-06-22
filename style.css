@@ -3,6 +3,19 @@
    Tokyo Night Theme - CSS
    ============================================ */
 
+/* [자동 로그인] 페이지 렌더링 전 세션이 확인되면 로그인 화면 건너뛰기
+   - 인라인 스크립트에서 .hidden 클래스를 직접 조작하므로 display 속성 충돌 없음
+   - .app의 appFadeIn 애니메이션은 비활성화 (transform: translateY로 인한 레이아웃 깨짐 방지)
+   - #app은 투명(opacity:0) → JS 초기화 완료 후 .app-ready로 페이드인 */
+html.auto-logged-in #app {
+  opacity: 0;
+  transform: none !important;
+  animation: none !important;
+  transition: opacity 0.35s ease;
+}
+html.auto-logged-in #app.app-ready {
+  opacity: 1;
+}
 /* --- CSS 커스텀 프로퍼티 (Tokyo Night 컬러 팔레트) --- */
 :root {
   /* Tokyo Night 핵심 색상 정의 */
@@ -250,6 +263,76 @@ body::before {
   text-align: center;
   margin: 0.2rem 0 0.6rem 0;
   line-height: 1.4;
+}
+
+/* [신규] 회원가입 — 확인 버튼 + 결과 메시지 (아이디/전화번호/이메일) */
+.check-field {
+  display: block;
+  width: 100%;
+  margin: 0;
+}
+
+.check-field-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+  width: 100%;
+}
+
+.check-field-row .login-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.check-btn {
+  flex: 0 0 auto;
+  padding: 0 1rem;
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-bright);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--transition-normal), background var(--transition-normal), color var(--transition-normal);
+  min-width: 64px;
+}
+
+.check-btn:hover {
+  border-color: var(--neon-cyan, #7dcfff);
+  color: var(--neon-cyan, #7dcfff);
+  background: rgba(125, 207, 255, 0.08);
+}
+
+.check-btn:active {
+  transform: scale(0.98);
+}
+
+.check-result {
+  font-size: 0.78rem;
+  margin: 0.3rem 0 0 0;
+  min-height: 1.1em;
+  line-height: 1.3;
+  text-align: left;
+  padding-left: 0.2rem;
+}
+
+.check-result:empty {
+  margin: 0;
+  min-height: 0;
+}
+
+.check-result-success {
+  color: #9ece6a;
+}
+
+.check-result-error {
+  color: #f7768e;
+}
+
+.check-result-info {
+  color: var(--text-secondary);
 }
 
 /* [신규] 아이디/비밀번호 찾기 링크 (로그인 화면 하단) */
@@ -519,6 +602,92 @@ body::before {
   color: var(--neon-pink);
   border-color: var(--neon-pink);
   text-decoration: none;
+}
+
+/* ============================================
+   [신규] myinfo '...' 드롭다운 메뉴 (보기/수정/등록)
+   ============================================ */
+.info-action-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.info-dots-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+  padding: 0;
+}
+
+.info-dots-btn:hover {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  background: rgba(125, 207, 255, 0.08);
+  box-shadow: 0 0 8px var(--shadow-neon-blue);
+}
+
+.info-dots-btn.active {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  background: rgba(125, 207, 255, 0.12);
+}
+
+.info-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  min-width: 90px;
+  z-index: 50;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.5),
+    0 0 8px rgba(125, 207, 255, 0.15);
+  overflow: hidden;
+  animation: modalSlideUp 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.info-dropdown.hidden {
+  display: none !important;
+}
+
+.info-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.9rem;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.info-dropdown-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--neon-cyan);
+}
+
+.info-dropdown-item.hidden {
+  display: none !important;
 }
 
 /* ============================================
@@ -982,23 +1151,13 @@ body::before {
   pointer-events: none;
 }
 
-.lofi-card-icon-large {
-  font-size: 4rem;
-  opacity: 0.6;
-  z-index: 1;
-  position: relative;
-  animation: musicPulse 3s ease-in-out infinite;
-}
-
-@keyframes musicPulse {
-  0%, 100% { transform: scale(1); opacity: 0.6; }
-  50% { transform: scale(1.1); opacity: 0.8; }
-}
+/* [삭제됨] lofi-card-icon-large + musicPulse 애니메이션 — 비주얼라이저가 lofi-card 내부로 이동하면서 불필요 */
 
 /* 곡 정보 오버레이 */
 .lofi-card-overlay {
   position: absolute;
   inset: 0;
+  z-index: 1;
   background: linear-gradient(
     0deg,
     rgba(22, 22, 30, 0.95) 0%,
@@ -1021,21 +1180,6 @@ body::before {
     rgba(22, 22, 30, 0.4) 0%,
     transparent 100%
   );
-}
-
-.lofi-card.active .lofi-card-icon-large {
-  animation: none;
-  opacity: 0.3;
-}
-
-.lofi-card.loading .lofi-card-icon-large {
-  animation: loadingSpin 1.5s linear infinite;
-}
-
-@keyframes loadingSpin {
-  0% { transform: rotate(0deg) scale(1); opacity: 0.6; }
-  50% { transform: rotate(180deg) scale(1.1); opacity: 0.9; }
-  100% { transform: rotate(360deg) scale(1); opacity: 0.6; }
 }
 
 .lofi-card-title {
@@ -1088,7 +1232,12 @@ body::before {
 .lofi-card.ui-visible .lofi-card-player-section,
 .lofi-card.ui-visible .lofi-progress-time,
 .lofi-card.ui-visible .lofi-progress-wrap,
-.lofi-card.ui-visible .lofi-card-volume-section {
+.lofi-card.ui-visible .lofi-card-volume-section,
+/* [보완] ui-pinned 시에도 컨트롤 표시 — 기존 CSS에 누락되어 있던 규칙 */
+.lofi-card.ui-pinned .lofi-card-player-section,
+.lofi-card.ui-pinned .lofi-progress-time,
+.lofi-card.ui-pinned .lofi-progress-wrap,
+.lofi-card.ui-pinned .lofi-card-volume-section {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
@@ -1355,11 +1504,8 @@ body::before {
 
 /* ============================================
    오디오 비주얼라이저 (Audio Visualizer)
+   - 기본(별도 섹션) + .visualizer-card (lofi-card 내부 임베드)
    ============================================ */
-.visualizer-section {
-  margin-bottom: 2.5rem;
-}
-
 .visualizer {
   display: flex;
   align-items: flex-end;
@@ -1386,12 +1532,41 @@ body::before {
   pointer-events: none;
 }
 
+/* [신규] lofi-card-album 내부 비주얼라이저 (재생화면 통합) */
+.visualizer-album {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-primary);
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  padding: 0.6rem;
+  z-index: 0;
+  opacity: 0.75;
+  transition: opacity var(--transition-normal);
+}
+
+.lofi-card-album .visualizer-album::after {
+  display: none; /* 반사 효과 비활성 (앨범 위에 표시되므로) */
+}
+
+.visualizer-album .viz-bar {
+  min-height: 4px;
+  max-width: none;
+  flex: 1;
+  border-radius: 2px;
+  z-index: 0;
+}
+
 .viz-bar {
   flex: 1;
   max-width: 12px;
   min-height: 3px;
   border-radius: 3px 3px 0 0;
-  background: linear-gradient(to top, var(--neon-blue), var(--neon-purple));
+  background: linear-gradient(to top, var(--viz-color-1, var(--neon-cyan)), var(--viz-color-2, var(--neon-blue)), var(--viz-color-3, var(--neon-purple)));
   transition: height 0.05s linear;
   position: relative;
   z-index: 1;
@@ -2134,4 +2309,438 @@ body::before {
   .playlist-actions {
     flex-direction: column;
   }
+}
+
+/* ============================================
+   [신규] 눈 모양 SVG 아이콘 (password-toggle 내부)
+   ============================================ */
+.password-toggle .eye-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+/* [변경] 기본 = 비밀번호 숨김(eye-closed) / active = 비밀번호 표시(eye-open) */
+.password-toggle .eye-open { display: none; }
+.password-toggle .eye-closed { display: block; }
+.password-toggle.active .eye-open { display: block; }
+.password-toggle.active .eye-closed { display: none; }
+
+/* ============================================
+   [신규] 볼륨 음소거 토글 버튼 (스피커 + 빗금)
+   ============================================ */
+.lofi-volume-icon,
+.volume-mute-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(125, 207, 255, 0.45));
+}
+
+/* 음소거 버튼 자체 */
+.volume-mute-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.volume-mute-btn:hover {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(125, 207, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.volume-mute-btn:active {
+  transform: scale(0.95);
+}
+
+/* 음소거 상태 — 핑크/레드 톤 + 빗금 */
+.volume-mute-btn.muted {
+  border-color: var(--neon-pink);
+  filter: drop-shadow(0 0 4px rgba(247, 118, 142, 0.5));
+}
+
+.volume-mute-btn.muted:hover {
+  border-color: var(--neon-pink);
+  box-shadow: 0 0 10px rgba(247, 118, 142, 0.4);
+}
+
+.volume-icon-svg {
+  width: 70%;
+  height: 70%;
+  stroke: var(--neon-cyan);
+}
+
+/* 음소거 시 스피커 아이콘 숨김, 빗금 아이콘 표시 */
+.volume-mute-btn .volume-icon-muted { display: none; }
+.volume-mute-btn.muted .volume-icon-speaker { display: none; }
+.volume-mute-btn.muted .volume-icon-muted { display: block; }
+
+.volume-mute-btn.muted .volume-icon-svg {
+  stroke: var(--neon-pink);
+}
+
+/* ============================================
+   [신규] myinfo 민감 정보 (마스킹 + 보기)
+   ============================================ */
+.info-row-sensitive {
+  position: relative;
+}
+
+.info-masked {
+  letter-spacing: 1.5px;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  font-family: 'Courier New', monospace;
+}
+
+.info-reveal-btn {
+  background: transparent;
+  border: 1px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.info-reveal-btn:hover {
+  background: rgba(125, 207, 255, 0.12);
+  box-shadow: 0 0 8px var(--shadow-neon-blue);
+}
+
+.info-reveal-btn.active {
+  background: rgba(125, 207, 255, 0.15);
+  border-color: var(--neon-blue);
+  color: var(--neon-blue);
+}
+
+.myinfo-reveal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--neon-cyan);
+  border-radius: var(--radius-sm);
+  animation: modalSlideUp 0.25s ease;
+}
+
+.myinfo-reveal-form.hidden {
+  display: none !important;
+}
+
+/* ============================================
+   [신규] 설정 FAB + 패널 (우측 하단, 스크롤 따라옴)
+   ============================================ */
+.settings-fab {
+  /* [변경] 스피커 버튼 스타일 — 작은 원형, transparent 배경, neon-cyan border */
+  position: absolute !important;
+  bottom: 12px !important;
+  right: 12px !important;
+  left: auto !important;
+  top: auto !important;
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  padding: 0;
+  color: var(--neon-cyan);   /* SVG stroke (currentColor) 상속 */
+  cursor: pointer;
+  /* [수정] z-index 1600 — 다른 컨트롤/패널보다 항상 위에 표시 */
+  z-index: 1600 !important;
+  filter: drop-shadow(0 0 4px rgba(125, 207, 255, 0.45));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* [핵심] 기본 숨김 — 다른 컨트롤과 동일한 패턴 */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease, transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.settings-fab svg {
+  width: 65%;
+  height: 65%;
+}
+
+/* 스피커 버튼과 동일한 호버 효과 — neon-cyan border + cyan glow + 약간 확대 */
+.settings-fab:hover {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(125, 207, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.settings-fab:active {
+  transform: scale(0.95);
+}
+
+/* [핵심] lo-fi card 호버/표시/고정 시 FAB 표시 — 다른 컨트롤과 함께 등장 */
+.lofi-card:hover .settings-fab,
+.lofi-card.ui-visible .settings-fab,
+.lofi-card.ui-pinned .settings-fab {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.settings-panel {
+  position: fixed !important;
+  bottom: 90px !important;
+  right: 24px !important;
+  left: auto !important;
+  top: auto !important;
+  width: 280px;
+  max-width: calc(100vw - 48px);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.2rem;
+  z-index: 1600 !important;
+  box-shadow:
+    0 0 30px rgba(125, 207, 255, 0.15),
+    0 20px 50px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: modalSlideUp 0.25s ease;
+}
+
+.settings-panel.hidden {
+  display: none !important;
+}
+
+.settings-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.6rem;
+}
+
+.settings-panel-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-bright);
+  font-weight: 700;
+}
+
+.settings-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.4rem;
+  transition: color var(--transition-fast);
+}
+
+.settings-close-btn:hover {
+  color: var(--neon-pink);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.settings-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.6rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.settings-toggle-label {
+  font-size: 0.85rem;
+  color: var(--text-bright);
+}
+
+/* iOS 스타일 토글 스위치 */
+.settings-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.settings-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.settings-switch-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border-color);
+  border-radius: 24px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.settings-switch-slider::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  background: var(--text-primary);
+  border-radius: 50%;
+  transition: transform var(--transition-fast);
+}
+
+.settings-switch input:checked + .settings-switch-slider {
+  background: linear-gradient(135deg, var(--neon-cyan), var(--neon-blue));
+  box-shadow: 0 0 10px var(--shadow-neon-blue);
+}
+
+.settings-switch input:checked + .settings-switch-slider::before {
+  transform: translateX(20px);
+  background: #fff;
+}
+
+/* 색상 선택 스왓치 */
+.color-picker {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  flex-wrap: wrap;
+}
+
+.color-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  padding: 0;
+}
+
+.color-swatch:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 12px currentColor;
+}
+
+.color-swatch.active {
+  border-color: var(--neon-cyan);
+  transform: scale(1.1);
+  box-shadow: 0 0 15px var(--shadow-neon-blue);
+}
+
+.color-swatch.active::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1b26;
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+}
+
+.settings-hint {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-align: center;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* 비주얼라이저 off 상태 */
+.visualizer.disabled {
+  opacity: 0.25;
+  filter: grayscale(0.5);
+  pointer-events: none;
+}
+
+/* ============================================
+   [신규] 플레이리스트 인라인 삭제 확인 UI
+   ============================================ */
+.playlist-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  background: rgba(247, 118, 142, 0.1);
+  border: 1px solid var(--neon-pink);
+  border-radius: var(--radius-sm);
+  animation: modalSlideUp 0.2s ease;
+}
+
+.playlist-confirm-text {
+  font-size: 0.8rem;
+  color: var(--neon-pink);
+  font-weight: 600;
+  margin: 0;
+  text-align: center;
+}
+
+.playlist-confirm-buttons {
+  display: flex;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.playlist-confirm-ok,
+.playlist-confirm-cancel {
+  flex: 1;
+  padding: 0.35rem 0.6rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition-fast);
+}
+
+.playlist-confirm-ok {
+  background: var(--neon-pink);
+  color: #1a1b26;
+}
+
+.playlist-confirm-ok:hover {
+  background: #ff8aa0;
+  box-shadow: 0 0 8px rgba(247, 118, 142, 0.4);
+}
+
+.playlist-confirm-cancel {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.playlist-confirm-cancel:hover {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
 }
